@@ -1,0 +1,794 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ p.first_name }} {{ p.last_name }} · RehabAI
+{% endblock %}
+
+
+{% block content %}
+
+<a class="back" href="{{ url_for('patients') }}">
+
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.4"
+    stroke-linecap="round"
+  >
+    <path d="M19 12H5M11 18l-6-6 6-6" />
+  </svg>
+
+  All patients
+
+</a>
+
+
+<div class="phead">
+
+  <div class="av av-lg {{ p.patient_id | tint }}">
+    {{ p.first_name[0] }}{{ p.last_name[0] }}
+  </div>
+
+
+  <div style="flex:1;min-width:230px">
+
+    <h1>
+      {{ p.first_name }} {{ p.last_name }}
+    </h1>
+
+    <div class="dx">
+      {{ p.primary_diagnosis }}
+    </div>
+
+
+    <!-- Clinician and hospital -->
+
+    {% if clinician_name or hospital_name %}
+
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          gap:9px;
+          margin-top:7px;
+          color:var(--ink-3);
+          font-size:13.5px;
+          flex-wrap:wrap;
+        "
+      >
+
+        {% if clinician_name %}
+
+          <span>
+            Clinician:
+            <strong
+              style="
+                color:var(--ink-2);
+                font-weight:600;
+              "
+            >
+              {{ clinician_name }}
+            </strong>
+          </span>
+
+        {% endif %}
+
+
+        {% if clinician_name and hospital_name %}
+
+          <span
+            style="
+              color:var(--ink-4);
+              font-size:14px;
+            "
+          >
+            ·
+          </span>
+
+        {% endif %}
+
+
+        {% if hospital_name %}
+
+          <span>
+            Hospital:
+            <strong
+              style="
+                color:var(--ink-2);
+                font-weight:600;
+              "
+            >
+              {{ hospital_name }}
+            </strong>
+          </span>
+
+        {% endif %}
+
+      </div>
+
+    {% endif %}
+
+
+  </div>
+
+
+  <!-- New prediction -->
+
+  <a
+    class="btn btn-primary"
+    href="{{ url_for('new_prediction', patient_id=p.patient_id) }}"
+  >
+
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+
+    New prediction
+
+  </a>
+
+</div>
+
+<div class="facts">
+
+  <span>
+    {{ p.patient_id }}
+  </span>
+
+  <span>
+    NHS {{ p.nhs_number }}
+  </span>
+
+  <span>
+    {% if p.date_of_birth %}
+      {{ p.date_of_birth | age }} years,
+    {% else %}
+      —,
+    {% endif %}
+    {{ 'female' if p.sex == 'F'
+      else 'male' if p.sex == 'M'
+      else 'other' }}
+  </span>
+
+  <span>
+    Admitted
+    <b>{{ p.admission_date | longdate }}</b>
+  </span>
+
+  <span>
+    Walking Status
+    <b class="{% if latest and latest.walking_status == 'walking' %}walking-good{% else %}walking-bad{% endif %}">
+      {% if latest and latest.walking_status == 'walking' %}
+        ✓ Walking
+      {% elif latest %}
+        × Wheelchair
+      {% else %}
+        —
+      {% endif %}
+    </b>
+  </span>
+</div>
+
+
+
+{% if latest %}
+
+
+<!-- =========================================================
+     SUMMARY TILES
+     ========================================================= -->
+
+<div class="tiles">
+
+
+  <!-- Walking probability -->
+
+  <div class="tile hero">
+
+    <div
+      class="lbl"
+      style="color:var(--ink-3)"
+    >
+      Chance of walking
+    </div>
+
+    <div
+      class="v num"
+      style="color:var(--ink-1)"
+    >
+      {{ '%.1f' % latest.walk_prob }}
+
+      <small style="color:var(--ink-3)">
+        %
+      </small>
+    </div>
+
+    <div
+      class="foot"
+      style="color:var(--ink-3)"
+    >
+      At discharge
+    </div>
+
+  </div>
+
+
+  <!-- WPI -->
+
+  <div class="tile">
+
+    <div
+      class="lbl"
+      style="color:var(--ink-3)"
+    >
+      WPI score
+    </div>
+
+    <div
+      class="v num"
+      style="color:var(--ink-1)"
+    >
+      {{ '%.1f' % latest.wpi }}
+
+      <small style="color:var(--ink-3)">
+        points
+      </small>
+    </div>
+
+
+    <div class="foot">
+
+      <span
+        style="
+          color:var(--{{ 'bad' if delta >= 0 else 'good' }});
+          font-weight:600
+        "
+      >
+
+        {% if delta >= 0 %}
+
+          ▼ Declined by {{ '%.1f' % delta }}
+
+        {% else %}
+
+          ▲ Improved by {{ '%.1f' % (delta * -1) }}
+
+        {% endif %}
+
+      </span>
+
+      since admission
+
+    </div>
+
+  </div>
+
+
+  <!-- Barrier burden -->
+
+  <div class="tile">
+
+    <div
+      class="lbl"
+      style="color:var(--ink-3)"
+    >
+      Barrier burden
+    </div>
+
+
+    <div
+      class="v num"
+      style="color:var(--{{ wpi_barrier_var(latest.wpi) }})"
+    >
+
+      {{ '%.1f' % latest.barrier_score }}
+
+      <small style="color:var(--ink-3)">
+        /10
+      </small>
+
+    </div>
+
+
+    <div class="foot">
+
+      <span class="pill {{ wpi_barrier_class(latest.wpi) }}">
+
+        <span class="dot"></span>
+
+        {{ wpi_barrier_band(latest.wpi) }}
+
+      </span>
+
+    </div>
+
+  </div>
+
+
+  <!-- Assessments -->
+
+  <div class="tile">
+
+    <div
+      class="lbl"
+      style="color:var(--ink-3)"
+    >
+      Assessments
+    </div>
+
+    <div
+      class="v num"
+      style="color:var(--ink-1)"
+    >
+      {{ history | length }}
+    </div>
+
+    <div
+      class="foot"
+      style="color:var(--ink-3)"
+    >
+      Last one {{ latest.assessed_on | ago }}
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<!-- =========================================================
+     PROGRESS
+     ========================================================= -->
+
+<div class="panel">
+
+  <div class="panel-head">
+
+    <h2>
+      {{ p.first_name }}'s progress
+    </h2>
+
+    <div class="spacer"></div>
+
+
+    <div class="seg" id="metricSeg">
+
+      <button
+        type="button"
+        class="on"
+        data-metric="wpi"
+      >
+        WPI
+      </button>
+
+      <button
+        type="button"
+        data-metric="walk"
+      >
+        Walking
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <p
+    class="hint"
+    data-hint="wpi"
+  >
+    Higher scores indicate improvement.
+  </p>
+
+
+  <p
+    class="hint hide"
+    data-hint="walk"
+  >
+    Model output at each assessment.
+  </p>
+
+
+  <div
+    class="chartbox"
+    id="chartbox"
+    data-chart='[
+      {%- for c in chart -%}
+
+        {
+          "wpi": {{ '%.1f' % c.wpi }},
+          "walk": {{ '%.1f' % c.walk }},
+          "label": "{{ c.date | shortdate }}",
+          "long": "{{ c.date | longdate }}"
+        }
+
+        {%- if not loop.last -%},{%- endif -%}
+
+      {%- endfor -%}
+    ]'
+  ></div>
+
+</div>
+
+
+
+<!-- =========================================================
+     PREDICTION HISTORY HEADER
+     ========================================================= -->
+
+<div
+  class="panel-head"
+  style="margin:28px 0 16px"
+>
+
+  <h2>
+    Prediction history
+  </h2>
+
+  <span class="pill p-soft">
+    {{ history | length }} records
+  </span>
+
+</div>
+
+
+
+<!-- =========================================================
+     PREDICTION TIMELINE
+     ========================================================= -->
+
+<div class="tl">
+
+  {% for e in entries %}
+
+    {% set a = e.row %}
+
+
+    <div
+      class="entry {% if e.is_latest %}first open{% endif %}"
+    >
+
+      <div class="ecard">
+
+
+        <!-- Assessment header -->
+
+        <button
+          type="button"
+          class="ehead"
+        >
+
+          <div class="ed">
+
+            <b>
+              {{ a.assessed_on | shortdate }}
+            </b>
+
+            <span>
+
+              {% if e.is_latest %}
+
+                most recent
+
+              {% else %}
+
+                assessment {{ e.index }}
+
+              {% endif %}
+
+            </span>
+
+          </div>
+
+
+          <!-- Walking -->
+
+          <div class="emet">
+
+            <div>
+
+              <span>
+                Walking
+              </span>
+
+              <b class="num">
+                {{ '%.1f' % a.walk_prob }}%
+              </b>
+
+            </div>
+
+
+            <!-- WPI -->
+
+            <div>
+
+              <span>
+                WPI
+              </span>
+
+              <b class="num">
+                {{ '%.1f' % a.wpi }}
+              </b>
+
+            </div>
+
+
+            <!-- Barrier burden -->
+
+            <div>
+
+              <span>
+                Barrier
+              </span>
+
+              <b
+                class="num"
+                style="color:var(--{{ wpi_barrier_var(a.wpi) }})"
+              >
+                {{ '%.1f' % a.barrier_score }}/10
+              </b>
+
+            </div>
+
+          </div>
+
+
+          <!-- Barrier burden band -->
+
+          <span
+            class="pill {{ wpi_barrier_class(a.wpi) }}"
+          >
+
+            <span class="dot"></span>
+
+            {{ wpi_barrier_band(a.wpi) }}
+
+          </span>
+
+
+          <!-- Chevron -->
+
+          <svg
+            class="chev"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+
+        </button>
+
+
+
+        <!-- Assessment details -->
+
+        <div class="ebody">
+
+
+          <!-- Interpretation -->
+
+          <div class="quote">
+
+            <h4>
+              What this means
+            </h4>
+
+            <p class="lead">
+              {{ e.text.lead }}
+            </p>
+
+            <p>
+              {{ e.text.body }}
+            </p>
+
+
+            {% if e.text.recs %}
+
+              <ul>
+
+                {% for r in e.text.recs %}
+
+                  <li>
+                    {{ r }}
+                  </li>
+
+                {% endfor %}
+
+              </ul>
+
+            {% endif %}
+
+          </div>
+
+
+
+          <!-- Domains -->
+
+          <div class="lbl-sm">
+            Strengths and areas to monitor
+          </div>
+
+
+          <div class="bars">
+
+            {% for d in domains %}
+
+              <div class="bar">
+
+                <span>
+                  {{ d.name }}
+                </span>
+
+                <span class="tr">
+
+                  <i
+                    style="
+                      width:{{ e.text.domains[d.id] }}%
+                    "
+                  ></i>
+
+                </span>
+
+                <span class="pc">
+                  {{ e.text.domains[d.id] }}%
+                </span>
+
+              </div>
+
+            {% endfor %}
+
+          </div>
+
+          <!-- Full result -->
+
+          <div style="margin-top:14px">
+
+            <a
+              class="btn btn-ghost"
+              style="
+                padding:8px 16px;
+                font-size:13.5px
+              "
+              href="{{ url_for(
+                'assessment',
+                patient_id=p.patient_id,
+                assessment_id=a.id
+              ) }}"
+            >
+              Open full result
+            </a>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  {% endfor %}
+
+</div>
+
+
+
+{% else %}
+
+
+<!-- =========================================================
+     NO PREDICTIONS
+     ========================================================= -->
+
+<div class="panel">
+
+  <div class="empty-state">
+
+    <h3>
+      No predictions yet
+    </h3>
+
+    <p>
+      Score the 28 admission items to get
+      {{ p.first_name }}'s first prediction.
+    </p>
+
+    <a
+      class="btn btn-primary"
+      style="margin-top:18px"
+      href="{{ url_for('new_prediction', patient_id=p.patient_id) }}"
+    >
+      Start the first assessment
+    </a>
+
+  </div>
+
+</div>
+
+
+{% endif %}
+
+
+
+<!-- =========================================================
+     CHART INITIALISATION
+     ========================================================= -->
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+  setTimeout(function () {
+
+    const chartbox =
+      document.getElementById('chartbox');
+
+
+    if (
+      chartbox &&
+      chartbox.dataset.chart
+    ) {
+
+      try {
+
+        const data =
+          JSON.parse(chartbox.dataset.chart);
+
+
+        if (data.length > 0) {
+
+          if (
+            typeof window.initChart === 'function'
+          ) {
+
+            window.initChart('wpi');
+
+          } else {
+
+            const wpiBtn =
+              document.querySelector(
+                '[data-metric="wpi"]'
+              );
+
+            if (wpiBtn) {
+              wpiBtn.click();
+            }
+
+          }
+
+        }
+
+      } catch (e) {
+
+        console.log(
+          'Chart data error:',
+          e
+        );
+
+      }
+
+    }
+
+  }, 100);
+
+});
+
+</script>
+
+
+{% endblock %}

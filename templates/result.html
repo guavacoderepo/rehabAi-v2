@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% block title %}Prediction · {{ p.first_name }} {{ p.last_name }} · RehabAI{% endblock %}
+
+{% block content %}
+{% set first = p.first_name %}
+{% set C = 339.292 %}
+
+<a class="back" href="{{ url_for('patient', patient_id=p.patient_id) }}">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2.4" stroke-linecap="round">
+    <path d="M19 12H5M11 18l-6-6 6-6"/>
+  </svg>
+  Back to {{ first }}
+</a>
+
+<div class="wiz-head">
+  <span class="lbl-sm">
+    Prediction for {{ p.first_name }} {{ p.last_name }} · {{ p.patient_id }}
+  </span>
+
+  <h1 style="margin-top:8px">Here's what the model expects</h1>
+
+  <p>
+    Scored on {{ a.assessed_on | longdate }}.
+    Saved to {{ first }}'s record.
+  </p>
+</div>
+
+<div class="res">
+
+  <!-- Walking probability -->
+  <div class="panel dial" style="margin:0">
+    <div class="lbl">Chance of walking</div>
+
+    <div class="big num">
+      {{ '%.1f' % a.walk_prob }}<small>%</small>
+    </div>
+
+    <div class="cap">At discharge</div>
+
+    <div class="cap">
+      chance of walking independently or with supervision by discharge
+    </div>
+  </div>
+
+
+  <div>
+
+    <!-- WPI + Barrier score -->
+    <div class="tiles" style="margin-bottom:16px">
+
+      <div class="tile">
+
+        <div class="lbl">WPI score</div>
+
+        <div class="v num">
+          {{ '%.1f' % a.wpi }}<small>points</small>
+        </div>
+
+        <div class="foot">
+
+          {% if previous %}
+
+            {% set d = a.wpi - previous.wpi %}
+
+            <span
+              style="color:var(--{{ 'bad' if d >= 0 else 'good' }});font-weight:600"
+            >
+
+              {% if d >= 0 %}
+                ▼ Declined by {{ '%.1f' % d }}
+              {% else %}
+                ▲ Improved by {{ '%.1f' % (d * -1) }}
+              {% endif %}
+
+            </span>
+
+            since last assessment
+            ({{ previous.assessed_on | longdate }})
+
+          {% else %}
+
+            <span style="color:var(--ink-3);font-style:italic;">
+              Baseline assessment
+            </span>
+
+          {% endif %}
+
+        </div>
+
+      </div>
+
+
+      <div class="tile">
+
+        <div class="lbl">Barrier score</div>
+
+        <div
+          class="v num"
+          style="color:var(--{{ wpi_barrier_var(a.barrier_score) }})"
+        >
+          {{ '%.1f' % a.barrier_score }}<small>/ 10</small>
+        </div>
+
+        <div class="riskline">
+          <i style="left:{{ (a.barrier_score / 10) * 100 }}%"></i>
+        </div>
+
+        <div class="rsc">
+          <span>Low</span>
+          <span>Moderate</span>
+          <span>High</span>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Interpretation -->
+    <div class="panel" style="margin:0">
+
+      <div class="quote">
+
+        <h4>What this means</h4>
+
+        <p class="lead">
+          {{ text.lead }}
+        </p>
+
+        <p>
+          {{ text.body }}
+        </p>
+
+        <ul>
+          {% for r in text.recs %}
+            <li>{{ r }}</li>
+          {% endfor %}
+        </ul>
+
+      </div>
+
+
+      <!-- Domain scores -->
+      <div class="lbl-sm">
+        Where they are strongest and weakest
+      </div>
+
+      <div class="bars">
+
+        {% for d in domains %}
+
+          <div class="bar">
+
+            <span>{{ d.name }}</span>
+
+            <span class="tr">
+              <i style="width:{{ text.domains[d.id] }}%"></i>
+            </span>
+
+            <span class="pc">
+              {{ text.domains[d.id] }}%
+            </span>
+
+          </div>
+
+        {% endfor %}
+
+      </div>
+
+
+      <!-- SHAP explanations -->
+      {% if shap %}
+
+        <div class="shap-section">
+
+          <div class="lbl-sm">
+            Factors influencing this prediction
+          </div>
+
+          <p class="shap-note">
+            These factors show which clinical items contributed most to
+            the predicted walking probability for this assessment.
+          </p>
+
+
+          <div class="shap-grid">
+
+
+            <!-- Supporting factors -->
+            <div class="shap-card">
+
+              <div class="shap-card-head">
+
+                <span class="shap-dot supporting"></span>
+
+                <div>
+                  <strong>Top supporting factors</strong>
+                  <small>Factors contributing positively</small>
+                </div>
+
+              </div>
+
+
+              {% if shap.supporting %}
+
+                {% set max_support =
+                    shap.supporting[0].shap
+                    if shap.supporting[0].shap > 0
+                    else 1
+                %}
+
+                {% for factor in shap.supporting %}
+
+                  <div class="shap-factor">
+
+                    <div class="shap-factor-main">
+
+                      <span>
+                        {{ factor.label }}
+                      </span>
+
+                      <strong>
+                        +{{ '%.2f' % factor.shap }}
+                      </strong>
+
+                    </div>
+
+                    <div class="shap-bar">
+
+                      <i
+                        style="
+                          width:
+                          {{ ((factor.shap / max_support) * 100)
+                             | round(1) }}%;
+                        "
+                      ></i>
+
+                    </div>
+
+                  </div>
+
+                {% endfor %}
+
+              {% else %}
+
+                <div class="shap-empty">
+                  No positive contributing factors identified.
+                </div>
+
+              {% endif %}
+
+            </div>
+
+
+            <!-- Limiting factors -->
+            <div class="shap-card">
+
+              <div class="shap-card-head">
+
+                <span class="shap-dot limiting"></span>
+
+                <div>
+                  <strong>Top limiting factors</strong>
+                  <small>Factors contributing negatively</small>
+                </div>
+
+              </div>
+
+
+              {% if shap.limiting %}
+
+                {% set max_limiting =
+                    shap.limiting[0].shap * -1
+                    if shap.limiting[0].shap < 0
+                    else 1
+                %}
+
+                {% for factor in shap.limiting %}
+
+                  <div class="shap-factor">
+
+                    <div class="shap-factor-main">
+
+                      <span>
+                        {{ factor.label }}
+                      </span>
+
+                      <strong>
+                        {{ '%.2f' % factor.shap }}
+                      </strong>
+
+                    </div>
+
+                    <div class="shap-bar">
+
+                      <i
+                        style="
+                          width:
+                          {{ (((factor.shap * -1) / max_limiting) * 100)
+                             | round(1) }}%;
+                        "
+                      ></i>
+
+                    </div>
+
+                  </div>
+
+                {% endfor %}
+
+              {% else %}
+
+                <div class="shap-empty">
+                  No negative contributing factors identified.
+                </div>
+
+              {% endif %}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      {% endif %}
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- Footer actions -->
+<div class="foot">
+
+  <div
+    style="
+      font-size:13.5px;
+      color:var(--ink-2);
+      max-width:42ch
+    "
+  >
+    This prediction is stored against {{ first }}'s record and plotted
+    on the progress chart.
+  </div>
+
+  <div class="spacer"></div>
+
+   <a
+    class="btn btn-ghost"
+    href="{{ url_for(
+      'new_prediction',
+      patient_id=p.patient_id,
+      edit=a.id
+    ) }}"
+  >
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M12 20h9"/>
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+    </svg>
+    Edit assessment
+  </a>
+
+  <a
+    class="btn btn-ghost"
+    href="{{ url_for(
+      'new_prediction',
+      patient_id=p.patient_id
+    ) }}"
+  >
+    Score again
+  </a>
+
+  <a
+    class="btn btn-primary"
+    href="{{ url_for(
+      'patient',
+      patient_id=p.patient_id
+    ) }}"
+  >
+
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M20 6L9 17l-5-5"/>
+    </svg>
+
+    Back to record
+
+  </a>
+
+</div>
+
+{% endblock %}

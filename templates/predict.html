@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}New prediction · {{ p.first_name }} {{ p.last_name }} · RehadAI{% endblock %}
+
+{% block content %}
+{% set first = p.first_name %}
+
+<a class="back" href="{{ url_for('patient', patient_id=p.patient_id) }}">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2.4" stroke-linecap="round">
+    <path d="M19 12H5M11 18l-6-6 6-6"/>
+  </svg>
+  Back to {{ first }}
+</a>
+
+<div class="wiz-head">
+  <span class="lbl-sm">
+    New prediction · {{ p.first_name }} {{ p.last_name }} · {{ p.patient_id }}
+  </span>
+
+  <h1>How is {{ first }} doing today?</h1>
+
+  <p>
+    Score all 28 admission items as they are <b>today</b>.
+    Hover a number to see what it means.
+  </p>
+
+  {% if previous %}
+    <div class="tipbar" style="margin-top:12px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4M12 16h.01"/>
+      </svg>
+
+      <span>
+        Prefilling from last assessment on
+        <b>{{ previous.assessed_on | longdate }}</b>.
+
+        <a href="{{ url_for('new_prediction', patient_id=p.patient_id) }}"
+           style="color:var(--pink);text-decoration:underline;">
+          Clear all
+        </a>
+      </span>
+    </div>
+  {% endif %}
+</div>
+
+
+<form method="post"
+      id="predictForm"
+      data-total="28"
+      action="{{ url_for('new_prediction', patient_id=p.patient_id) }}">
+
+  <!-- ================================================================
+       Assessment details
+       ================================================================ -->
+
+  <div class="dateline">
+
+    <div>
+      <label for="assessed_on">Assessment date</label>
+      <input
+        type="date"
+        id="assessed_on"
+        name="assessed_on"
+        value="{{ assessed_on }}"
+        required
+      >
+    </div>
+
+    <div style="margin-top:16px;">
+      <label>Current walking status</label>
+
+      <div style="
+        display:flex;
+        gap:12px;
+        margin-top:8px;
+        flex-wrap:wrap;
+      ">
+
+        <label style="
+          display:flex;
+          align-items:center;
+          gap:7px;
+          cursor:pointer;
+          font-weight:500;
+        ">
+          <input
+            type="radio"
+            name="walking_status"
+            value="walking"
+            {% if walking_status == 'walking' %}checked{% endif %}
+            required
+          >
+          Walking
+        </label>
+
+        <label style="
+          display:flex;
+          align-items:center;
+          gap:7px;
+          cursor:pointer;
+          font-weight:500;
+        ">
+          <input
+            type="radio"
+            name="walking_status"
+            value="wheelchair"
+            {% if walking_status == 'wheelchair' %}checked{% endif %}
+            required
+          >
+          Wheelchair
+        </label>
+
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ================================================================
+       Assessment items
+       ================================================================ -->
+
+  {% for d in domains %}
+
+    <div class="sec">
+      <h2>{{ d.name }}</h2>
+
+      <span class="count">
+        {{ d['items'] | length }} items
+      </span>
+
+      <span
+        class="domain-status"
+        style="font-size:12px;color:var(--text-muted);margin-left:8px;"
+      >
+        <span class="domain-filled">0</span>
+        /{{ d['items'] | length }} filled
+      </span>
+    </div>
+
+
+    <div class="qcard">
+
+      {% for it in d['items'] %}
+
+        {% set scale = it.scale %}
+        {% set scale_values = it['values'] %}
+
+        <div
+          class="q"
+          data-min="{{ scale_values[0] }}"
+          data-max="{{ scale_values[-1] }}"
+          data-dir="{{ 1 if scale == 'fim' else -1 }}"
+          data-domain="{{ d.id }}"
+          data-key="{{ it.key }}"
+        >
+
+          <div class="q-l">
+
+            <b>{{ it.label }}</b>
+
+            {% if values is mapping %}
+              {% set current = values.get(it.key) %}
+            {% else %}
+              {% set current = none %}
+            {% endif %}
+
+            <div class="ans {% if current is none %}empty{% endif %}">
+
+              {% if current is not none %}
+                {{ it.anchors[current] }}
+              {% else %}
+                <span style="color:var(--bad);">
+                  ⚠️ Not answered yet
+                </span>
+              {% endif %}
+
+            </div>
+
+          </div>
+
+
+          <div class="q-r">
+
+            <span class="stag">
+              {{ it.tag }}
+            </span>
+
+            <div class="scale">
+
+              {% for v in scale_values %}
+
+                <input
+                  type="radio"
+                  id="{{ it.key }}_{{ v }}"
+                  name="{{ it.key }}"
+                  value="{{ v }}"
+                  data-anchor="{{ it.anchors[v] }}"
+                  {% if current is not none and current == v %}checked{% endif %}
+                  required
+                >
+
+                <label
+                  for="{{ it.key }}_{{ v }}"
+                  title="{{ it.anchors[v] }}"
+                >
+                  {{ v }}
+                </label>
+
+              {% endfor %}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      {% endfor %}
+
+    </div>
+
+  {% endfor %}
+
+
+  <!-- ================================================================
+       Footer
+       ================================================================ -->
+
+  <div class="foot" id="foot">
+
+    <div>
+
+      <div
+        class="cnt"
+        style="font-size:12.5px;color:var(--ink-2)"
+      >
+        0 of 28 answered
+      </div>
+
+      <div class="mini">
+        <i style="width:0%"></i>
+      </div>
+
+    </div>
+
+    <div class="spacer"></div>
+
+    <a
+      class="btn btn-ghost"
+      href="{{ url_for('patient', patient_id=p.patient_id) }}"
+    >
+      Cancel
+    </a>
+
+    <button
+      class="btn btn-primary submit"
+      type="submit"
+      id="submitBtn"
+      disabled
+    >
+      Save and predict
+
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+      >
+        <path d="M5 12h14M13 6l6 6-6 6"/>
+      </svg>
+
+    </button>
+
+  </div>
+
+</form>
+
+{% endblock %}

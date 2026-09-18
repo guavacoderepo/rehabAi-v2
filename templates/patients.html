@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}Patients · RehabAI{% endblock %}
+
+{% block content %}
+
+<div class="patients-page">
+
+  <!-- Page heading -->
+  <div class="patients-header">
+
+    <h1>Patient Selection / Entry</h1>
+
+    <p>
+      Search for an existing patient or add a new patient to start their
+      rehabilitation journey in RehabAI.
+    </p>
+
+  </div>
+
+
+  <!-- Patient search panel -->
+  <div class="panel patient-search-panel">
+
+    <div class="patient-search-heading">
+
+      <div class="patient-search-title">
+
+        <div>
+          <h2>Find an Existing Patient</h2>
+
+          <p>
+            Search by NHS number, name or patient ID, or use filters to find a patient.
+          </p>
+        </div>
+
+        <a
+          href="{{ url_for('add_patient') }}"
+          class="btn btn-primary add-patient-button"
+        >
+          + Add patient
+        </a>
+
+      </div>
+
+    </div>
+
+
+    <form
+      class="patient-search-form"
+      method="get"
+      action="{{ url_for('patients') }}"
+    >
+
+      <!-- Search row -->
+      <div class="patient-search-row">
+
+        <div class="patient-search-box">
+
+          <svg
+            width="21"
+            height="21"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="M20 20l-3.5-3.5"></path>
+          </svg>
+
+          <input
+            type="text"
+            name="q"
+            value="{{ q }}"
+            placeholder="Search NHS number, name or patient ID..."
+            autocomplete="off"
+          >
+
+        </div>
+
+
+        <button
+          type="submit"
+          class="patient-search-button"
+        >
+          Search
+        </button>
+
+
+        <a
+          href="{{ url_for('patients') }}"
+          class="patient-clear-button"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M3 4h18"></path>
+            <path d="M6 4l1 16h10l1-16"></path>
+            <path d="M9 8v8"></path>
+            <path d="M15 8v8"></path>
+          </svg>
+
+          Clear filters
+        </a>
+
+      </div>
+
+
+      <!-- Filters -->
+      <div class="patient-filters">
+
+        <!-- Diagnosis -->
+        <div class="patient-filter-field">
+
+          <label for="diagnosis">
+            Diagnosis
+          </label>
+
+          <select
+            id="diagnosis"
+            name="diagnosis"
+            class="patient-filter-select"
+          >
+
+            <option value="">All</option>
+
+            {% for diagnosis_option in diagnoses %}
+              <option
+                value="{{ diagnosis_option }}"
+                {% if diagnosis == diagnosis_option %}selected{% endif %}
+              >
+                {{ diagnosis_option }}
+              </option>
+            {% endfor %}
+
+          </select>
+
+        </div>
+
+
+        <!-- Admission date -->
+        <div class="patient-filter-field">
+
+          <label for="admission_date">
+            Admission date
+          </label>
+
+          <input
+            id="admission_date"
+            type="date"
+            name="admission_date"
+            value="{{ admission_date }}"
+            class="patient-filter-date"
+          >
+
+        </div>
+
+
+        <!-- Walking status -->
+        <div class="patient-filter-field">
+
+          <label for="walking_status">
+            Walking status (admission)
+          </label>
+
+          <select
+            id="walking_status"
+            name="walking_status"
+            class="patient-filter-select"
+          >
+
+            <option value="">All</option>
+
+            <option
+              value="walking"
+              {% if walking_status == "walking" %}selected{% endif %}
+            >
+              Walking
+            </option>
+
+            <option
+              value="wheelchair"
+              {% if walking_status == "wheelchair" %}selected{% endif %}
+            >
+              Wheelchair
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <!-- Admission status -->
+        <div class="patient-filter-field">
+
+          <label for="admission_status">
+            Status
+          </label>
+
+          <select
+            id="admission_status"
+            name="admission_status"
+            class="patient-filter-select"
+          >
+
+            <option value="">All</option>
+
+            <option
+              value="active"
+              {% if admission_status == "active" %}selected{% endif %}
+            >
+              Active
+            </option>
+
+            <option
+              value="discharged"
+              {% if admission_status == "discharged" %}selected{% endif %}
+            >
+              Discharged
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <!-- Apply filters -->
+        <div class="patient-filter-action">
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+          >
+            Apply filters
+          </button>
+
+        </div>
+
+      </div>
+
+    </form>
+
+
+    <!-- Patient count -->
+    <div class="patient-count">
+      Showing
+      <strong>{{ people|length }}</strong>
+      of
+      <strong>{{ total }}</strong>
+      patients
+    </div>
+
+  </div>
+
+
+  <!-- Patient table -->
+  {% if people %}
+
+    <div class="panel patient-panel">
+
+      <div class="patient-table-wrap">
+
+        <table class="patient-table">
+
+          <thead>
+
+            <tr>
+              <th>Patient</th>
+              <th>Name</th>
+              <th>Age</th>
+              <th>Diagnosis</th>
+              <th>Admission date</th>
+              <th>Admission status</th>
+              <th>Walking status</th>
+              <th>Action</th>
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            {% for item in people %}
+
+              {% set p = item.row %}
+              {% set a = item.latest %}
+
+              <tr
+                class="patient-row"
+                data-url="{{ url_for('patient', patient_id=p.patient_id) }}"
+                onclick="window.location.href=this.dataset.url"
+              >
+
+                <!-- Patient -->
+                <td>
+
+                  <div class="patient-id-block">
+
+                    <strong>
+                      {{ p.patient_id }}
+                    </strong>
+
+                    <span class="nhs-number">
+                      NHS {{ p.nhs_number }}
+                    </span>
+
+                  </div>
+
+                </td>
+
+
+                <!-- Name -->
+                <td>
+
+                  <div class="patient-name">
+
+                    <strong>
+                      {{ p.first_name }} {{ p.last_name }}
+                    </strong>
+
+                  </div>
+
+                </td>
+
+
+                <!-- Age -->
+                <td>
+
+                  <span class="age-value">
+
+                    {% if p.date_of_birth is not none %}
+                      {{ p.date_of_birth | age }}
+                    {% else %}
+                      —
+                    {% endif %}
+
+                  </span>
+
+                </td>
+
+
+                <!-- Diagnosis -->
+                <td>
+
+                  <span class="diagnosis">
+                    {{ p.primary_diagnosis }}
+                  </span>
+
+                </td>
+
+
+                <!-- Admission date -->
+                <td>
+                  {{ p.admission_date }}
+                </td>
+
+
+                <!-- Admission status -->
+                <td>
+
+                  {% if p.admission_status == "active" %}
+
+                    <span class="status-pill status-active">
+                      <span class="status-dot"></span>
+                      Active
+                    </span>
+
+                  {% else %}
+
+                    <span class="status-pill status-discharged">
+                      <span class="status-dot"></span>
+                      Discharged
+                    </span>
+
+                  {% endif %}
+
+                </td>
+
+
+                <!-- Walking status -->
+                <td>
+
+                  {% if a %}
+
+                    {% if a.walking_status == "walking" %}
+
+                      <span class="status-pill status-walking">
+                        <span class="status-dot"></span>
+                        Walking
+                      </span>
+
+                    {% else %}
+
+                      <span class="status-pill status-not-walking">
+                        <span class="status-dot"></span>
+                        Wheelchair
+                      </span>
+
+                    {% endif %}
+
+                  {% else %}
+
+                    <span class="muted">
+                      Not assessed
+                    </span>
+
+                  {% endif %}
+
+                </td>
+
+
+                <!-- Action -->
+                <td
+                  onclick="event.stopPropagation()"
+                  class="patient-action-cell"
+                >
+
+                  <a
+                    href="{{ url_for(
+                      'edit_patient',
+                      patient_id=p.patient_id
+                    ) }}"
+                    class="patient-edit-button"
+                  >
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1-1 1 1-4Z"></path>
+                    </svg>
+                    Edit
+                  </a>
+
+                </td>
+
+              </tr>
+
+            {% endfor %}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+
+  {% else %}
+
+    <div class="panel">
+
+      <div class="empty-state">
+
+        <h3>No patients found</h3>
+
+        <p>
+          Try changing your search or filters.
+        </p>
+
+        <a
+          href="{{ url_for('add_patient') }}"
+          class="btn btn-primary"
+        >
+          + Add patient
+        </a>
+
+      </div>
+
+    </div>
+
+  {% endif %}
+
+</div>
+
+{% endblock %}

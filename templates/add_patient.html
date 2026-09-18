@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if editing %}
+    Edit Patient · RehabAI
+  {% else %}
+    Add Patient · RehabAI
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<a class="back" href="{{ url_for('patients') }}">
+
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.4"
+    stroke-linecap="round"
+  >
+    <path d="M19 12H5M11 18l-6-6 6-6" />
+  </svg>
+
+  All patients
+
+</a>
+
+
+<div class="page-head">
+
+  <div>
+
+    <h1>
+      {% if editing %}
+        Edit patient
+      {% else %}
+        Add patient
+      {% endif %}
+    </h1>
+
+    <p>
+      {% if editing %}
+        Update the patient's details and save the changes to their rehabilitation record.
+      {% else %}
+        Enter the patient's details to create a new rehabilitation record.
+      {% endif %}
+    </p>
+
+  </div>
+
+</div>
+
+
+<div class="panel form-panel">
+
+  <form
+    method="post"
+    action="{% if editing %}
+              {{ url_for('edit_patient', patient_id=p.patient_id) }}
+            {% else %}
+              {{ url_for('add_patient') }}
+            {% endif %}"
+  >
+
+    <!-- Patient details -->
+    <div class="form-section">
+
+      <h2>Patient details</h2>
+
+      <div class="form-grid">
+
+        <!-- Patient number -->
+        <div class="field">
+
+          <label for="patient_id">
+            Patient number
+          </label>
+
+          <input
+            id="patient_id"
+            name="patient_id"
+            type="text"
+            class="input"
+            value="{{ request.form.get('patient_id', p.patient_id if editing else '') }}"
+            placeholder="e.g. ROC-4872"
+            required
+            {% if editing %}readonly{% endif %}
+          >
+
+        </div>
+
+
+        <!-- NHS number -->
+        <div class="field">
+
+          <label for="nhs_number">
+            NHS number
+          </label>
+
+          <input
+            id="nhs_number"
+            name="nhs_number"
+            type="text"
+            class="input"
+            value="{{ request.form.get('nhs_number', p.nhs_number if editing else '') }}"
+            placeholder="e.g. 943 721 6081"
+            required
+            {% if editing %}readonly{% endif %}
+          >
+
+        </div>
+
+
+        <!-- First name -->
+        <div class="field">
+
+          <label for="first_name">
+            First name
+          </label>
+
+          <input
+            id="first_name"
+            name="first_name"
+            type="text"
+            class="input"
+            value="{{ request.form.get('first_name', p.first_name if editing else '') }}"
+            placeholder="First name"
+            required
+          >
+
+        </div>
+
+
+        <!-- Last name -->
+        <div class="field">
+
+          <label for="last_name">
+            Last name
+          </label>
+
+          <input
+            id="last_name"
+            name="last_name"
+            type="text"
+            class="input"
+            value="{{ request.form.get('last_name', p.last_name if editing else '') }}"
+            placeholder="Last name"
+            required
+          >
+
+        </div>
+
+
+        <!-- Date of birth -->
+        <div class="field">
+
+          <label for="date_of_birth">
+            Date of birth
+          </label>
+
+          <input
+            id="date_of_birth"
+            name="date_of_birth"
+            type="date"
+            class="input"
+            value="{{ request.form.get('date_of_birth', p.date_of_birth if editing else '') }}"
+            required
+          >
+
+        </div>
+
+
+        <!-- Sex -->
+        <div class="field">
+
+          <label for="sex">
+            Sex
+          </label>
+
+          <select
+            id="sex"
+            name="sex"
+            class="input"
+            required
+            {% if editing %}readonly{% endif %}
+          >
+
+            <option value="">
+              Select
+            </option>
+
+            <option
+              value="F"
+              {% if request.form.get('sex', p.sex if editing else '') == 'F' %}
+                selected
+              {% endif %}
+            >
+              Female
+            </option>
+
+            <option
+              value="M"
+              {% if request.form.get('sex', p.sex if editing else '') == 'M' %}
+                selected
+              {% endif %}
+            >
+              Male
+            </option>
+
+            <option
+              value="X"
+              {% if request.form.get('sex', p.sex if editing else '') == 'X' %}
+                selected
+              {% endif %}
+            >
+              Other / not specified
+            </option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Rehabilitation details -->
+    <div class="form-section">
+
+      <h2>Rehabilitation details</h2>
+
+      <div class="form-grid">
+
+        <!-- Primary diagnosis -->
+        <div class="field">
+
+          <label for="primary_diagnosis">
+            Primary diagnosis
+          </label>
+
+          <select
+            id="primary_diagnosis"
+            name="primary_diagnosis"
+            class="input"
+            required
+          >
+
+            <option value="">
+              Select diagnosis
+            </option>
+
+            <option
+              value="Stroke: Infarct"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Infarct' %}
+                selected
+              {% endif %}
+            >
+              Infarct
+            </option>
+
+            <option
+              value="Trauma"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Trauma' %}
+                selected
+              {% endif %}
+            >
+              Trauma
+            </option>
+
+            <option
+              value="Stroke: Haemorrhagic"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Haemorrhagic' %}
+                selected
+              {% endif %}
+            >
+              Haemorrhagic
+            </option>
+
+            <option
+              value="Stroke: Other"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Other' %}
+                selected
+              {% endif %}
+            >
+              Other
+            </option>
+
+            <option
+              value="Stroke: Sub-Arachnoid"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Sub-Arachnoid' %}
+                selected
+              {% endif %}
+            >
+              Sub-Arachnoid
+            </option>
+
+            <option
+              value="Inflammatory"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Inflammatory' %}
+                selected
+              {% endif %}
+            >
+              Inflammatory
+            </option>
+
+            <option
+              value="Anoxia"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Anoxia' %}
+                selected
+              {% endif %}
+            >
+              Anoxia
+            </option>
+
+            <option
+              value="Tumour"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Tumour' %}
+                selected
+              {% endif %}
+            >
+              Tumour
+            </option>
+
+            <option
+              value="Toxic"
+              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Toxic' %}
+                selected
+              {% endif %}
+            >
+              Toxic
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <!-- Admission date -->
+        <div class="field">
+
+          <label for="admission_date">
+            Admission date
+          </label>
+
+          <input
+            id="admission_date"
+            name="admission_date"
+            type="date"
+            class="input"
+            value="{{ request.form.get('admission_date', p.admission_date if editing else '') }}"
+            required
+            {% if editing %}readonly{% endif %}
+          >
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Form actions -->
+    <div class="form-actions">
+
+      <a
+        href="{{ url_for('patients') }}"
+        class="btn btn-secondary"
+      >
+        Cancel
+      </a>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+      >
+        {% if editing %}
+          Save changes
+        {% else %}
+          Add patient
+        {% endif %}
+      </button>
+
+    </div>
+
+  </form>
+
+</div>
+
+{% endblock %}
