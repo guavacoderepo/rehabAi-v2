@@ -40,7 +40,7 @@
     </h1>
 
     <div class="dx">
-      {{ p.primary_diagnosis }}
+      {{ p.diag_std_subcat }}
     </div>
 
 
@@ -156,8 +156,8 @@
     {% else %}
       —,
     {% endif %}
-    {{ 'female' if p.sex == 'F'
-      else 'male' if p.sex == 'M'
+    {{ 'female' if p.patient_gender == 'F'
+      else 'male' if p.patient_gender == 'M'
       else 'other' }}
   </span>
 

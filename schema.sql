@@ -55,9 +55,9 @@ CREATE TABLE patients (
     last_name           TEXT NOT NULL,
 
     date_of_birth       TEXT NOT NULL,
-    sex                 TEXT NOT NULL CHECK(sex IN ('F','M','X')),
+    patient_gender      TEXT NOT NULL CHECK(patient_gender IN ('F','M','X')),
 
-    primary_diagnosis   TEXT NOT NULL,
+    diag_std_subcat     TEXT NOT NULL,
 
     admission_date      TEXT NOT NULL,
 

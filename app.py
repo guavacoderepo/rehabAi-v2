@@ -26,6 +26,7 @@ from model import (
     interpret,
     predict,
     wpi_barrier_band,
+    measures_grouping
 )
 
 app = Flask(__name__)
@@ -251,7 +252,7 @@ def patients():
                     str(row.get("patient_id") or ""),
                     str(row.get("nhs_number") or ""),
                     full_name,
-                    str(row.get("primary_diagnosis") or "")
+                    str(row.get("diag_std_subcat") or "")
                 ]
             ).lower()
 
@@ -300,9 +301,9 @@ def add_patient():
         first_name = (request.form.get("first_name") or "").strip()
         last_name = (request.form.get("last_name") or "").strip()
         date_of_birth = request.form.get("date_of_birth")
-        sex = request.form.get("sex")
-        primary_diagnosis = (
-            request.form.get("primary_diagnosis") or ""
+        patient_gender = request.form.get("patient_gender")
+        diag_std_subcat = (
+            request.form.get("diag_std_subcat") or ""
         ).strip()
         admission_date = request.form.get("admission_date")
         admission_status = "active"
@@ -315,8 +316,8 @@ def add_patient():
             first_name,
             last_name,
             date_of_birth,
-            sex,
-            primary_diagnosis,
+            patient_gender,
+            diag_std_subcat,
             admission_date,
             admission_status,
             created_by,
@@ -335,8 +336,8 @@ def add_patient():
                     first_name,
                     last_name,
                     date_of_birth,
-                    sex,
-                    primary_diagnosis,
+                    patient_gender,
+                    diag_std_subcat,
                     admission_date,
                     admission_status,
                     created_by
@@ -349,8 +350,8 @@ def add_patient():
                     first_name,
                     last_name,
                     date_of_birth,
-                    sex,
-                    primary_diagnosis,
+                    patient_gender,
+                    diag_std_subcat,
                     admission_date,
                     admission_status,
                     created_by
@@ -395,9 +396,9 @@ def edit_patient(patient_id):
         first_name = request.form.get("first_name", "").strip()
         last_name = request.form.get("last_name", "").strip()
         date_of_birth = request.form.get("date_of_birth", "").strip()
-        sex = request.form.get("sex", "").strip()
-        primary_diagnosis = request.form.get(
-            "primary_diagnosis",
+        patient_gender = request.form.get("patient_gender", "").strip()
+        diag_std_subcat = request.form.get(
+            "diag_std_subcat",
             "",
         ).strip()
         admission_date = request.form.get(
@@ -411,8 +412,8 @@ def edit_patient(patient_id):
             first_name,
             last_name,
             date_of_birth,
-            sex,
-            primary_diagnosis,
+            patient_gender,
+            diag_std_subcat,
             admission_date,
         ]):
             flash("Please complete all required fields.")
@@ -423,7 +424,7 @@ def edit_patient(patient_id):
                 editing=True,
             )
 
-        if sex not in ("F", "M", "X"):
+        if patient_gender not in ("F", "M", "X"):
             flash("Please select a valid sex.")
 
             return render_template(
@@ -471,8 +472,8 @@ def edit_patient(patient_id):
                 first_name = ?,
                 last_name = ?,
                 date_of_birth = ?,
-                sex = ?,
-                primary_diagnosis = ?,
+                patient_gender = ?,
+                diag_std_subcat = ?,
                 admission_date = ?
             WHERE id = ?
             """,
@@ -482,8 +483,8 @@ def edit_patient(patient_id):
                 first_name,
                 last_name,
                 date_of_birth,
-                sex,
-                primary_diagnosis,
+                patient_gender,
+                diag_std_subcat,
                 admission_date,
                 p["id"],
             ),
@@ -1059,6 +1060,9 @@ def assessment(patient_id, assessment_id):
         for key in ITEM_KEYS
     }
 
+    # Group the assessment measures
+    measures = measures_grouping(a)
+
     # Run SHAP explanation for this assessment
     shap_result = explain_patient(values)
 
@@ -1072,6 +1076,7 @@ def assessment(patient_id, assessment_id):
         shap=shap_result,
         previous=previous,
         domains=DOMAINS,
+        measures=measures,
     )
 
 

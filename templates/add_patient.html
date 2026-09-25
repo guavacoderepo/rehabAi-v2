@@ -176,13 +176,13 @@
         <!-- Sex -->
         <div class="field">
 
-          <label for="sex">
+          <label for="patient_gender">
             Sex
           </label>
 
           <select
-            id="sex"
-            name="sex"
+            id="patient_gender"
+            name="patient_gender"
             class="input"
             required
             {% if editing %}readonly{% endif %}
@@ -194,7 +194,7 @@
 
             <option
               value="F"
-              {% if request.form.get('sex', p.sex if editing else '') == 'F' %}
+              {% if request.form.get('patient_gender', p.patient_gender if editing else '') == 'F' %}
                 selected
               {% endif %}
             >
@@ -203,7 +203,7 @@
 
             <option
               value="M"
-              {% if request.form.get('sex', p.sex if editing else '') == 'M' %}
+              {% if request.form.get('patient_gender', p.patient_gender if editing else '') == 'M' %}
                 selected
               {% endif %}
             >
@@ -212,7 +212,7 @@
 
             <option
               value="X"
-              {% if request.form.get('sex', p.sex if editing else '') == 'X' %}
+              {% if request.form.get('patient_gender', p.patient_gender if editing else '') == 'X' %}
                 selected
               {% endif %}
             >
@@ -238,13 +238,13 @@
         <!-- Primary diagnosis -->
         <div class="field">
 
-          <label for="primary_diagnosis">
+          <label for="diag_std_subcat">
             Primary diagnosis
           </label>
 
           <select
-            id="primary_diagnosis"
-            name="primary_diagnosis"
+            id="diag_std_subcat"
+            name="diag_std_subcat"
             class="input"
             required
           >
@@ -255,7 +255,7 @@
 
             <option
               value="Stroke: Infarct"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Infarct' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Stroke: Infarct' %}
                 selected
               {% endif %}
             >
@@ -264,7 +264,7 @@
 
             <option
               value="Trauma"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Trauma' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Trauma' %}
                 selected
               {% endif %}
             >
@@ -273,7 +273,7 @@
 
             <option
               value="Stroke: Haemorrhagic"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Haemorrhagic' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Stroke: Haemorrhagic' %}
                 selected
               {% endif %}
             >
@@ -282,7 +282,7 @@
 
             <option
               value="Stroke: Other"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Other' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Stroke: Other' %}
                 selected
               {% endif %}
             >
@@ -291,7 +291,7 @@
 
             <option
               value="Stroke: Sub-Arachnoid"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Stroke: Sub-Arachnoid' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Stroke: Sub-Arachnoid' %}
                 selected
               {% endif %}
             >
@@ -300,7 +300,7 @@
 
             <option
               value="Inflammatory"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Inflammatory' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Inflammatory' %}
                 selected
               {% endif %}
             >
@@ -309,7 +309,7 @@
 
             <option
               value="Anoxia"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Anoxia' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Anoxia' %}
                 selected
               {% endif %}
             >
@@ -318,7 +318,7 @@
 
             <option
               value="Tumour"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Tumour' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Tumour' %}
                 selected
               {% endif %}
             >
@@ -327,7 +327,7 @@
 
             <option
               value="Toxic"
-              {% if request.form.get('primary_diagnosis', p.primary_diagnosis if editing else '') == 'Toxic' %}
+              {% if request.form.get('diag_std_subcat', p.diag_std_subcat if editing else '') == 'Toxic' %}
                 selected
               {% endif %}
             >

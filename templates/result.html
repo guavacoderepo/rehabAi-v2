@@ -1,61 +1,103 @@
 {% extends "base.html" %}
-{% block title %}Prediction · {{ p.first_name }} {{ p.last_name }} · RehabAI{% endblock %}
+
+{% block title %}
+  Prediction · {{ p.first_name }} {{ p.last_name }} · RehabAI
+{% endblock %}
+
 
 {% block content %}
+
 {% set first = p.first_name %}
 {% set C = 339.292 %}
 
+
 <a class="back" href="{{ url_for('patient', patient_id=p.patient_id) }}">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-       stroke-width="2.4" stroke-linecap="round">
+
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.4"
+    stroke-linecap="round"
+  >
     <path d="M19 12H5M11 18l-6-6 6-6"/>
   </svg>
+
   Back to {{ first }}
+
 </a>
 
+
 <div class="wiz-head">
+
   <span class="lbl-sm">
     Prediction for {{ p.first_name }} {{ p.last_name }} · {{ p.patient_id }}
   </span>
 
-  <h1 style="margin-top:8px">Here's what the model expects</h1>
+  <h1 style="margin-top:8px">
+    Here's what the model expects
+  </h1>
 
   <p>
     Scored on {{ a.assessed_on | longdate }}.
     Saved to {{ first }}'s record.
   </p>
+
 </div>
+
 
 <div class="res">
 
-  <!-- Walking probability -->
+
+  <!-- =========================================================
+       WALKING PROBABILITY
+       ========================================================= -->
+
   <div class="panel dial" style="margin:0">
-    <div class="lbl">Chance of walking</div>
+
+    <div class="lbl">
+      Chance of walking
+    </div>
 
     <div class="big num">
       {{ '%.1f' % a.walk_prob }}<small>%</small>
     </div>
 
-    <div class="cap">At discharge</div>
+    <div class="cap">
+      At discharge
+    </div>
 
     <div class="cap">
       chance of walking independently or with supervision by discharge
     </div>
+
   </div>
 
 
   <div>
 
-    <!-- WPI + Barrier score -->
+
+    <!-- =========================================================
+         WPI + BARRIER SCORE
+         ========================================================= -->
+
     <div class="tiles" style="margin-bottom:16px">
+
+
+      <!-- WPI -->
 
       <div class="tile">
 
-        <div class="lbl">WPI score</div>
+        <div class="lbl">
+          WPI score
+        </div>
 
         <div class="v num">
           {{ '%.1f' % a.wpi }}<small>points</small>
         </div>
+
 
         <div class="foot">
 
@@ -64,13 +106,22 @@
             {% set d = a.wpi - previous.wpi %}
 
             <span
-              style="color:var(--{{ 'bad' if d >= 0 else 'good' }});font-weight:600"
+              style="
+                color:var(
+                  --{{ 'bad' if d >= 0 else 'good' }}
+                );
+                font-weight:600;
+              "
             >
 
               {% if d >= 0 %}
+
                 ▼ Declined by {{ '%.1f' % d }}
+
               {% else %}
+
                 ▲ Improved by {{ '%.1f' % (d * -1) }}
+
               {% endif %}
 
             </span>
@@ -80,7 +131,12 @@
 
           {% else %}
 
-            <span style="color:var(--ink-3);font-style:italic;">
+            <span
+              style="
+                color:var(--ink-3);
+                font-style:italic;
+              "
+            >
               Baseline assessment
             </span>
 
@@ -91,25 +147,51 @@
       </div>
 
 
+      <!-- Barrier score -->
+
       <div class="tile">
 
-        <div class="lbl">Barrier score</div>
+        <div class="lbl">
+          Barrier score
+        </div>
 
         <div
           class="v num"
-          style="color:var(--{{ wpi_barrier_var(a.barrier_score) }})"
+          style="
+            color:var(
+              --{{ wpi_barrier_var(a.barrier_score) }}
+            )
+          "
         >
           {{ '%.1f' % a.barrier_score }}<small>/ 10</small>
         </div>
 
+
         <div class="riskline">
-          <i style="left:{{ (a.barrier_score / 10) * 100 }}%"></i>
+
+          <i
+            style="
+              left:{{ (a.barrier_score / 10) * 100 }}%;
+            "
+          ></i>
+
         </div>
 
+
         <div class="rsc">
-          <span>Low</span>
-          <span>Moderate</span>
-          <span>High</span>
+
+          <span>
+            Low
+          </span>
+
+          <span>
+            Moderate
+          </span>
+
+          <span>
+            High
+          </span>
+
         </div>
 
       </div>
@@ -117,50 +199,468 @@
     </div>
 
 
-    <!-- Interpretation -->
+    <!-- =========================================================
+         TABS
+         ========================================================= -->
+    <div class="prediction-tabs" role="tablist">
+
+      <button
+        class="prediction-tab active"
+        type="button"
+        role="tab"
+        id="interpretation-tab"
+        aria-selected="true"
+        aria-controls="interpretation-panel"
+        data-tab="interpretation"
+      >
+        Interpretation
+      </button>
+
+      <button
+        class="prediction-tab"
+        type="button"
+        role="tab"
+        id="assessments-tab"
+        aria-selected="false"
+        aria-controls="assessments-panel"
+        data-tab="assessments"
+      >
+        Assessments
+      </button>
+
+      <button
+        class="prediction-tab"
+        type="button"
+        role="tab"
+        id="similar-tab"
+        aria-selected="false"
+        aria-controls="similar-panel"
+        data-tab="similar"
+      >
+        Explore similar patients
+      </button>
+
+    </div>
+
+
+    <!-- =========================================================
+         INTERPRETATION TAB
+         ========================================================= -->
+
+    <div
+      id="interpretation-panel"
+      class="prediction-tab-panel"
+      role="tabpanel"
+      aria-labelledby="interpretation-tab"
+    >
+
+
+      <div
+        class="panel"
+        style="margin:0"
+      >
+
+
+        <!-- Interpretation -->
+
+        <div class="quote">
+
+          <h4>
+            What this means
+          </h4>
+
+
+          <p class="lead">
+            {{ text.lead }}
+          </p>
+
+
+          <p>
+            {{ text.body }}
+          </p>
+
+
+          <ul>
+
+            {% for r in text.recs %}
+
+              <li>
+                {{ r }}
+              </li>
+
+            {% endfor %}
+
+          </ul>
+
+        </div>
+
+
+        <!-- =====================================================
+             DOMAIN SCORES
+             ===================================================== -->
+
+        <div class="lbl-sm">
+
+          Where they are strongest and weakest
+
+        </div>
+
+
+        <div class="bars">
+
+          {% for d in domains %}
+
+            <div class="bar">
+
+              <span>
+                {{ d.name }}
+              </span>
+
+
+              <span class="tr">
+
+                <i
+                  style="
+                    width:{{ text.domains[d.id] }}%;
+                  "
+                ></i>
+
+              </span>
+
+
+              <span class="pc">
+
+                {{ text.domains[d.id] }}%
+
+              </span>
+
+            </div>
+
+          {% endfor %}
+
+        </div>
+
+
+        <!-- =====================================================
+             SHAP EXPLANATIONS
+             ===================================================== -->
+
+        {% if shap %}
+
+          <div class="shap-section">
+
+
+            <div class="lbl-sm">
+
+              Factors influencing this prediction
+
+            </div>
+
+
+            <p class="shap-note">
+
+              These factors show which clinical items contributed
+              most to the predicted walking probability for this
+              assessment.
+
+            </p>
+
+
+            <div class="shap-grid">
+
+
+              <!-- =================================================
+                   SUPPORTING FACTORS
+                   ================================================= -->
+
+              <div class="shap-card">
+
+
+                <div class="shap-card-head">
+
+                  <span class="shap-dot supporting"></span>
+
+
+                  <div>
+
+                    <strong>
+                      Top supporting factors
+                    </strong>
+
+                    <small>
+                      Factors contributing positively
+                    </small>
+
+                  </div>
+
+                </div>
+
+
+                {% if shap.supporting %}
+
+
+                  {% set max_support =
+                    shap.supporting[0].shap
+                    if shap.supporting[0].shap > 0
+                    else 1
+                  %}
+
+
+                  {% for factor in shap.supporting %}
+
+                    <div class="shap-factor">
+
+
+                      <div class="shap-factor-main">
+
+                        <span>
+                          {{ factor.label }}
+                        </span>
+
+
+                        <strong>
+                          +{{ '%.2f' % factor.shap }}
+                        </strong>
+
+                      </div>
+
+
+                      <div class="shap-bar">
+
+                        <i
+                          style="
+                            width:
+                            {{
+                              ((factor.shap / max_support) * 100)
+                              | round(1)
+                            }}%;
+                          "
+                        ></i>
+
+                      </div>
+
+
+                    </div>
+
+                  {% endfor %}
+
+
+                {% else %}
+
+
+                  <div class="shap-empty">
+
+                    No positive contributing factors identified.
+
+                  </div>
+
+
+                {% endif %}
+
+              </div>
+
+
+              <!-- =================================================
+                   LIMITING FACTORS
+                   ================================================= -->
+
+              <div class="shap-card">
+
+
+                <div class="shap-card-head">
+
+                  <span class="shap-dot limiting"></span>
+
+
+                  <div>
+
+                    <strong>
+                      Top limiting factors
+                    </strong>
+
+                    <small>
+                      Factors contributing negatively
+                    </small>
+
+                  </div>
+
+                </div>
+
+
+                {% if shap.limiting %}
+
+
+                  {% set max_limiting =
+                    shap.limiting[0].shap * -1
+                    if shap.limiting[0].shap < 0
+                    else 1
+                  %}
+
+
+                  {% for factor in shap.limiting %}
+
+                    <div class="shap-factor">
+
+
+                      <div class="shap-factor-main">
+
+                        <span>
+                          {{ factor.label }}
+                        </span>
+
+
+                        <strong>
+                          {{ '%.2f' % factor.shap }}
+                        </strong>
+
+                      </div>
+
+
+                      <div class="shap-bar">
+
+                        <i
+                          style="
+                            width:
+                            {{
+                              (((factor.shap * -1) / max_limiting) * 100)
+                              | round(1)
+                            }}%;
+                          "
+                        ></i>
+
+                      </div>
+
+
+                    </div>
+
+                  {% endfor %}
+
+
+                {% else %}
+
+
+                  <div class="shap-empty">
+
+                    No negative contributing factors identified.
+
+                  </div>
+
+
+                {% endif %}
+
+              </div>
+
+
+            </div>
+
+          </div>
+
+        {% endif %}
+
+
+      </div>
+
+    </div>
+
+
+    <!-- =========================================================
+     ASSESSMENTS TAB
+     ========================================================= -->
+
+
+  <div
+    id="assessments-panel"
+    class="prediction-tab-panel"
+    role="tabpanel"
+    aria-labelledby="assessments-tab"
+    hidden
+  >
     <div class="panel" style="margin:0">
 
-      <div class="quote">
+      
+    <div class="assessment-card">
 
-        <h4>What this means</h4>
+      <!-- Header -->
+      <div class="assessment-card-header">
+        <div>
+          <h3>Key Measures (Admission)</h3>
+          <p>Selected items from routine assessment</p>
+        </div>
+      </div>
 
-        <p class="lead">
-          {{ text.lead }}
-        </p>
 
-        <p>
-          {{ text.body }}
-        </p>
+      <!-- Tabs -->
+      <div class="assessment-measure-tabs">
 
-        <ul>
-          {% for r in text.recs %}
-            <li>{{ r }}</li>
-          {% endfor %}
-        </ul>
+        <button
+          type="button"
+          class="assessment-measure-tab active"
+          data-measure-tab="fimfam"
+        >
+          FIM+FAM
+        </button>
+
+        <button
+          type="button"
+          class="assessment-measure-tab"
+          data-measure-tab="nis"
+        >
+          NIS
+        </button>
+
+        <button
+          type="button"
+          class="assessment-measure-tab"
+          data-measure-tab="npds"
+        >
+          NPDS
+        </button>
 
       </div>
 
 
-      <!-- Domain scores -->
-      <div class="lbl-sm">
-        Where they are strongest and weakest
-      </div>
+      <!-- =====================================================
+          FIM + FAM
+          ===================================================== -->
 
-      <div class="bars">
+      <div
+        class="assessment-measure-content active"
+        data-measure-content="fimfam"
+      >
 
-        {% for d in domains %}
+        {% for measure in measures.fimfam %}
 
-          <div class="bar">
+          {% set range = measure.max - measure.min %}
 
-            <span>{{ d.name }}</span>
+          {% if measure.dir > 0 %}
+            {% set percentage =
+              ((measure.value - measure.min) / range * 100)
+              if range else 0
+            %}
+          {% else %}
+            {% set percentage =
+              ((measure.max - measure.value) / range * 100)
+              if range else 0
+            %}
+          {% endif %}
 
-            <span class="tr">
-              <i style="width:{{ text.domains[d.id] }}%"></i>
-            </span>
+          <div class="score-row">
 
-            <span class="pc">
-              {{ text.domains[d.id] }}%
-            </span>
+            <div class="score-row-top">
+              <span class="score-name">
+                {{ measure.name }}
+              </span>
+
+              <strong class="score-value">
+                {{ measure.value }} / {{ measure.max }}
+              </strong>
+            </div>
+
+            <div class="score-bar">
+              <span
+                style="width: {{ percentage | round(1) }}%;"
+              ></span>
+            </div>
 
           </div>
 
@@ -169,150 +669,224 @@
       </div>
 
 
-      <!-- SHAP explanations -->
-      {% if shap %}
+      <!-- =====================================================
+          NIS
+          ===================================================== -->
 
-        <div class="shap-section">
+      <div
+        class="assessment-measure-content"
+        data-measure-content="nis"
+        hidden
+      >
 
-          <div class="lbl-sm">
-            Factors influencing this prediction
+        {% for measure in measures.nis %}
+
+          {% set range = measure.max - measure.min %}
+
+          {% if measure.dir > 0 %}
+            {% set percentage =
+              ((measure.value - measure.min) / range * 100)
+              if range else 0
+            %}
+          {% else %}
+            {% set percentage =
+              ((measure.max - measure.value) / range * 100)
+              if range else 0
+            %}
+          {% endif %}
+
+          <div class="score-row">
+
+            <div class="score-row-top">
+              <span class="score-name">
+                {{ measure.name }}
+              </span>
+
+              <strong class="score-value">
+                {{ measure.value }} / {{ measure.max }}
+              </strong>
+            </div>
+
+            <div class="score-bar">
+              <span
+                style="width: {{ percentage | round(1) }}%;"
+              ></span>
+            </div>
+
           </div>
 
-          <p class="shap-note">
-            These factors show which clinical items contributed most to
-            the predicted walking probability for this assessment.
+        {% endfor %}
+
+      </div>
+
+
+      <!-- =====================================================
+          NPDS
+          ===================================================== -->
+
+      <div
+        class="assessment-measure-content"
+        data-measure-content="npds"
+        hidden
+      >
+
+        {% for measure in measures.npds %}
+
+          {% set range = measure.max - measure.min %}
+
+          {% if measure.dir > 0 %}
+            {% set percentage =
+              ((measure.value - measure.min) / range * 100)
+              if range else 0
+            %}
+          {% else %}
+            {% set percentage =
+              ((measure.max - measure.value) / range * 100)
+              if range else 0
+            %}
+          {% endif %}
+
+          <div class="score-row">
+
+            <div class="score-row-top">
+              <span class="score-name">
+                {{ measure.name }}
+              </span>
+
+              <strong class="score-value">
+                {{ measure.value }} / {{ measure.max }}
+              </strong>
+            </div>
+
+            <div class="score-bar">
+              <span
+                style="width: {{ percentage | round(1) }}%;"
+              ></span>
+            </div>
+
+          </div>
+
+        {% endfor %}
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  </div>
+
+
+    <!-- =========================================================
+         SIMILAR PATIENTS TAB
+         ========================================================= -->
+
+    <div
+      id="similar-panel"
+      class="prediction-tab-panel"
+      role="tabpanel"
+      aria-labelledby="similar-tab"
+      hidden
+    >
+
+
+      <div
+        class="panel"
+        style="margin:0"
+      >
+
+
+        <div class="quote">
+
+          <h4>
+            Explore similar patients
+          </h4>
+
+
+          <p class="lead">
+
+            See how this patient's assessment compares with
+            patients who have similar clinical characteristics.
+
           </p>
 
 
-          <div class="shap-grid">
+          <p>
+
+            This comparison uses aggregated information from
+            similar assessments and does not identify individual
+            patients.
+
+          </p>
+
+        </div>
 
 
-            <!-- Supporting factors -->
-            <div class="shap-card">
+        <!-- =====================================================
+             SIMILAR PATIENT SUMMARY
+             ===================================================== -->
 
-              <div class="shap-card-head">
-
-                <span class="shap-dot supporting"></span>
-
-                <div>
-                  <strong>Top supporting factors</strong>
-                  <small>Factors contributing positively</small>
-                </div>
-
-              </div>
+        <div class="similar-summary">
 
 
-              {% if shap.supporting %}
+          <div class="lbl-sm">
+            Similar patient cohort
+          </div>
 
-                {% set max_support =
-                    shap.supporting[0].shap
-                    if shap.supporting[0].shap > 0
-                    else 1
-                %}
 
-                {% for factor in shap.supporting %}
+          <div class="similar-count">
 
-                  <div class="shap-factor">
+            <strong>
+              {{ similar_count if similar_count is defined else '—' }}
+            </strong>
 
-                    <div class="shap-factor-main">
+            <span>
+              similar assessments
+            </span>
 
-                      <span>
-                        {{ factor.label }}
-                      </span>
+          </div>
 
-                      <strong>
-                        +{{ '%.2f' % factor.shap }}
-                      </strong>
 
-                    </div>
+        </div>
 
-                    <div class="shap-bar">
 
-                      <i
-                        style="
-                          width:
-                          {{ ((factor.shap / max_support) * 100)
-                             | round(1) }}%;
-                        "
-                      ></i>
+        <!-- =====================================================
+             COMPARISON TILES
+             ===================================================== -->
 
-                    </div>
+        <div class="tiles similar-tiles">
 
-                  </div>
 
-                {% endfor %}
+          <!-- Walking probability -->
 
-              {% else %}
+          <div class="tile">
 
-                <div class="shap-empty">
-                  No positive contributing factors identified.
-                </div>
+            <div class="lbl">
+              Walking probability
+            </div>
 
-              {% endif %}
+
+            <div class="v num">
+
+              {{ '%.1f' % a.walk_prob }}<small>%</small>
 
             </div>
 
 
-            <!-- Limiting factors -->
-            <div class="shap-card">
+            <div class="similar-compare">
 
-              <div class="shap-card-head">
+              {% if similar_walk_prob is defined %}
 
-                <span class="shap-dot limiting"></span>
-
-                <div>
-                  <strong>Top limiting factors</strong>
-                  <small>Factors contributing negatively</small>
-                </div>
-
-              </div>
-
-
-              {% if shap.limiting %}
-
-                {% set max_limiting =
-                    shap.limiting[0].shap * -1
-                    if shap.limiting[0].shap < 0
-                    else 1
-                %}
-
-                {% for factor in shap.limiting %}
-
-                  <div class="shap-factor">
-
-                    <div class="shap-factor-main">
-
-                      <span>
-                        {{ factor.label }}
-                      </span>
-
-                      <strong>
-                        {{ '%.2f' % factor.shap }}
-                      </strong>
-
-                    </div>
-
-                    <div class="shap-bar">
-
-                      <i
-                        style="
-                          width:
-                          {{ (((factor.shap * -1) / max_limiting) * 100)
-                             | round(1) }}%;
-                        "
-                      ></i>
-
-                    </div>
-
-                  </div>
-
-                {% endfor %}
+                Similar patients:
+                <strong>
+                  {{ '%.1f' % similar_walk_prob }}%
+                </strong>
 
               {% else %}
 
-                <div class="shap-empty">
-                  No negative contributing factors identified.
-                </div>
+                Similar patient average:
+                <strong>—</strong>
 
               {% endif %}
 
@@ -320,19 +894,161 @@
 
           </div>
 
+
+          <!-- WPI -->
+
+          <div class="tile">
+
+            <div class="lbl">
+              WPI score
+            </div>
+
+
+            <div class="v num">
+
+              {{ '%.1f' % a.wpi }}
+
+            </div>
+
+
+            <div class="similar-compare">
+
+              {% if similar_wpi is defined %}
+
+                Similar patients:
+                <strong>
+                  {{ '%.1f' % similar_wpi }}
+                </strong>
+
+              {% else %}
+
+                Similar patient average:
+                <strong>—</strong>
+
+              {% endif %}
+
+            </div>
+
+          </div>
+
+
+          <!-- Barrier score -->
+
+          <div class="tile">
+
+            <div class="lbl">
+              Barrier score
+            </div>
+
+
+            <div class="v num">
+
+              {{ '%.1f' % a.barrier_score }}
+
+            </div>
+
+
+            <div class="similar-compare">
+
+              {% if similar_barrier is defined %}
+
+                Similar patients:
+                <strong>
+                  {{ '%.1f' % similar_barrier }}
+                </strong>
+
+              {% else %}
+
+                Similar patient average:
+                <strong>—</strong>
+
+              {% endif %}
+
+            </div>
+
+          </div>
+
+
         </div>
 
-      {% endif %}
+
+        <!-- =====================================================
+             SIMILAR PATIENT INTERPRETATION
+             ===================================================== -->
+
+        <div class="similar-analysis">
+
+
+          <div class="lbl-sm">
+            Comparison
+          </div>
+
+
+          {% if similar_summary is defined and similar_summary %}
+
+            <p class="similar-summary-text">
+              {{ similar_summary }}
+            </p>
+
+          {% else %}
+
+            <div class="similar-empty">
+
+              <strong>
+                Similar-patient analysis
+              </strong>
+
+              <p>
+                Once the similarity analysis is connected,
+                this section will show how this assessment
+                compares with the identified patient cohort.
+              </p>
+
+            </div>
+
+          {% endif %}
+
+
+        </div>
+
+
+        <!-- =====================================================
+             DISCLAIMER
+             ===================================================== -->
+
+        <div class="similar-note">
+
+          <strong>
+            About this comparison
+          </strong>
+
+          <p>
+            Similar-patient comparisons are intended to provide
+            additional context alongside the individual model
+            prediction. They should not be interpreted as a
+            clinical recommendation or as a substitute for
+            professional clinical judgement.
+          </p>
+
+        </div>
+
+
+      </div>
 
     </div>
+
 
   </div>
 
 </div>
 
 
-<!-- Footer actions -->
+<!-- =============================================================
+     FOOTER ACTIONS
+     ============================================================= -->
+
 <div class="foot">
+
 
   <div
     style="
@@ -341,13 +1057,19 @@
       max-width:42ch
     "
   >
-    This prediction is stored against {{ first }}'s record and plotted
-    on the progress chart.
+
+    This prediction is stored against {{ first }}'s record
+    and plotted on the progress chart.
+
   </div>
+
 
   <div class="spacer"></div>
 
-   <a
+
+  <!-- Edit -->
+
+  <a
     class="btn btn-ghost"
     href="{{ url_for(
       'new_prediction',
@@ -355,6 +1077,7 @@
       edit=a.id
     ) }}"
   >
+
     <svg
       width="15"
       height="15"
@@ -365,11 +1088,27 @@
       stroke-linecap="round"
       stroke-linejoin="round"
     >
+
       <path d="M12 20h9"/>
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+
+      <path
+        d="
+          M16.5 3.5
+          a2.12 2.12 0 0 1 3 3
+          L7 19
+          l-4 1
+          1-4Z
+        "
+      />
+
     </svg>
+
     Edit assessment
+
   </a>
+
+
+  <!-- Score again -->
 
   <a
     class="btn btn-ghost"
@@ -378,8 +1117,13 @@
       patient_id=p.patient_id
     ) }}"
   >
+
     Score again
+
   </a>
+
+
+  <!-- Back -->
 
   <a
     class="btn btn-primary"
@@ -399,13 +1143,17 @@
       stroke-linecap="round"
       stroke-linejoin="round"
     >
+
       <path d="M20 6L9 17l-5-5"/>
+
     </svg>
 
     Back to record
 
   </a>
 
+
 </div>
+
 
 {% endblock %}

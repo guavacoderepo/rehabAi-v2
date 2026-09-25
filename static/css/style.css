@@ -1534,6 +1534,25 @@ h4 {
   color: #9aa0a6;
 }
 
+select.input {
+  height: 47px;
+  box-sizing: border-box;
+
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+
+  padding: 11px 36px 11px 13px;
+
+  background-color: #ffffff;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+
 .login-foot {
   margin-top: 21px;
   padding-top: 17px;
@@ -2197,6 +2216,563 @@ h4 {
   color: var(--ink-4);
   font-size: 12px;
 }
+
+.prediction-tabs {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+
+.prediction-tabs .prediction-tab {
+  position: relative;
+  display: inline-block;
+  appearance: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 0 12px;
+  margin: 0;
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.prediction-tabs .prediction-tab:hover {
+  color: var(--ink);
+  background: transparent;
+}
+
+.prediction-tabs .prediction-tab.active {
+   color:  var(--pink) !important;
+  background: transparent;
+}
+
+.prediction-tabs .prediction-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 2px 2px 0 0;
+}
+
+.prediction-tab-panel[hidden] {
+  display: none !important;
+}
+
+
+/* ===============================================================
+   SAVED ASSESSMENTS
+   =============================================================== */
+
+.assessment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assessment-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.assessment-card.current {
+  border-color: var(--ink);
+}
+
+.assessment-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 220px 24px;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 18px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.assessment-header:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.assessment-main {
+  min-width: 0;
+}
+
+.assessment-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assessment-title-row strong {
+  font-size: 14px;
+}
+
+.assessment-current {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.assessment-date {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.assessment-progress-wrap {
+  width: 100%;
+}
+
+.assessment-progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.assessment-progress-label span:first-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.assessment-progress {
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.assessment-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--good);
+}
+
+.assessment-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  transition: transform 0.15s ease;
+}
+
+.assessment-card.open .assessment-chevron {
+  transform: rotate(180deg);
+}
+
+.assessment-details {
+  border-top: 1px solid var(--line);
+  padding: 18px;
+}
+
+.assessment-details[hidden] {
+  display: none;
+}
+
+.assessment-domains {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.assessment-domain {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.assessment-domain-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.assessment-domain-head strong {
+  display: block;
+  font-size: 13px;
+}
+
+.assessment-domain-head span:not(.domain-count) {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.domain-count {
+  flex-shrink: 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.domain-progress {
+  width: 100%;
+  height: 4px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.domain-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pink);
+}
+
+.measure-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.measure-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.measure-item span {
+  color: var(--ink-2);
+}
+
+.measure-item strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+
+
+/* =========================================================
+   KEY MEASURES CARD
+   ========================================================= */
+
+.assessment-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+
+/* Header */
+
+.assessment-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.assessment-card-header h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.assessment-card-header p {
+  margin: 4px 0 0;
+  color: var(--ink-3);
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   TABS
+   ========================================================= */
+
+.assessment-measure-tabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.assessment-measure-tab {
+  position: relative;
+  padding: 7px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.assessment-measure-tab:hover {
+  color: var(--ink-2);
+}
+
+.assessment-measure-tab.active {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.assessment-measure-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pink);
+}
+
+
+/* =========================================================
+   SCORE ROWS
+   ========================================================= */
+
+.assessment-measure-content {
+  padding-top: 2px;
+}
+
+.score-row {
+  padding: 8px 0;
+}
+
+.score-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 5px;
+}
+
+.score-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-value {
+  flex: 0 0 auto;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   PROGRESS BAR
+   ========================================================= */
+
+.score-bar {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #edf1f5;
+}
+
+.score-bar span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: 3px;
+  background: var(--pink);
+  transition: width 0.3s ease;
+}
+
+
+
+
+@media (max-width: 700px) {
+
+  .assessment-header {
+    grid-template-columns: 1fr 24px;
+  }
+
+  .assessment-progress-wrap {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .assessment-chevron {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .measure-items {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+/* =========================================================
+   SIMILAR PATIENTS
+   ========================================================= */
+
+.similar-summary {
+  margin-bottom: 24px;
+}
+
+
+.similar-count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+
+  margin-top: 8px;
+}
+
+
+.similar-count strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+
+.similar-count span {
+  color: var(--ink-3);
+  font-size: 13px;
+}
+
+
+.similar-tiles {
+  margin-bottom: 28px;
+}
+
+
+.similar-compare {
+  margin-top: 8px;
+
+  color: var(--ink-3);
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+.similar-compare strong {
+  color: var(--ink-2);
+}
+
+
+.similar-analysis {
+  margin-top: 28px;
+}
+
+
+.similar-summary-text {
+  margin-top: 8px;
+
+  max-width: 70ch;
+
+  color: var(--ink-2);
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+
+.similar-empty {
+  margin-top: 12px;
+
+  padding: 22px;
+
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+
+  background: var(--surface, transparent);
+}
+
+
+.similar-empty strong {
+  display: block;
+
+  margin-bottom: 6px;
+
+  font-size: 14px;
+}
+
+
+.similar-empty p {
+  margin: 0;
+
+  color: var(--ink-3);
+
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+
+.similar-note {
+  margin-top: 28px;
+
+  padding-top: 18px;
+
+  border-top: 1px solid var(--line);
+}
+
+
+.similar-note strong {
+  display: block;
+
+  margin-bottom: 5px;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  color: var(--ink-2);
+}
+
+
+.similar-note p {
+  margin: 0;
+
+  max-width: 70ch;
+
+  color: var(--ink-3);
+
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
 
 
 @media (max-width: 700px) {
@@ -3086,16 +3662,12 @@ h4 {
 
 .dial {
   display: flex;
-
   flex-direction: column;
-
   align-items: center;
-
-  justify-content: center;
-
+  justify-content: top;
   text-align: center;
-
   padding: 25px;
+  padding-top: 120px;
 }
 
 .dial .big {

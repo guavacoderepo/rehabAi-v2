@@ -469,6 +469,49 @@ def wpi_barrier_var(wpi):
     else:
         return "bad"
 
+def measures_grouping(a):
+    """Group the 28 UK ROC admission items into 3 scales for display."""
+    grouped = {
+        "fimfam": [],
+        "nis": [],
+        "npds": [],
+    }
+
+    item_lookup = {
+        item["key"]: item
+        for item in ITEMS
+    }
+
+    # sqlite3.Row exposes its column names through keys()
+    for key in a.keys():
+
+        if not key.endswith("_adm"):
+            continue
+
+        measure_name = key.split("_")[0].lower()
+
+        if measure_name not in grouped:
+            continue
+
+        item = item_lookup.get(key)
+
+        if not item:
+            continue
+
+        scale = SCALES[item["scale"]]
+
+        grouped[measure_name].append({
+            "key": key,
+            "name": item["label"],
+            "value": a[key],
+            "min": scale["min"],
+            "max": scale["max"],
+            "scale": item["scale"],
+            "tag": scale["tag"],
+            "dir": scale["dir"],
+        })
+
+    return grouped
 
 def interpret(pred, previous=None, patient_name="Patient"):
     """Generate plain-English clinical interpretation."""
