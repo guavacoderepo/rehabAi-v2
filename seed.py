@@ -1,5 +1,6 @@
 import json
 import math
+from datetime import date, datetime
 
 from werkzeug.security import generate_password_hash
 
@@ -34,10 +35,6 @@ SEED_CLINICS = [
 
 # ---------------------------------------------------------------------------
 # Demo users
-#
-# clinic_id is assigned after the clinics have been created.
-#
-# The admin is a system-level user and therefore has no clinic.
 # ---------------------------------------------------------------------------
 
 SEED_USERS = [
@@ -70,13 +67,6 @@ SEED_USERS = [
 
 # ---------------------------------------------------------------------------
 # 5 dummy patients
-#
-# `history` is a list of:
-#     (assessment date, recovery profile)
-#
-# Profile:
-#     0.0 = fully dependent
-#     1.0 = independent
 # ---------------------------------------------------------------------------
 
 DUMMY_PATIENTS = [
@@ -87,7 +77,7 @@ DUMMY_PATIENTS = [
         "last_name": "Whitfield",
         "date_of_birth": "1958-04-14",
         "patient_gender": "F",
-        "diag_std_subcat": "Left MCA infarct",
+        "diag_std_subcat": "Anoxia",
         "admission_date": "2026-06-02",
         "admission_status": "active",
         "history": [
@@ -105,7 +95,7 @@ DUMMY_PATIENTS = [
         "last_name": "Osei",
         "date_of_birth": "1985-09-22",
         "patient_gender": "M",
-        "diag_std_subcat": "Traumatic brain injury",
+        "diag_std_subcat": "Trauma",
         "admission_date": "2026-06-14",
         "admission_status": "active",
         "history": [
@@ -122,7 +112,7 @@ DUMMY_PATIENTS = [
         "last_name": "Raghavan",
         "date_of_birth": "1971-02-11",
         "patient_gender": "F",
-        "diag_std_subcat": "Incomplete spinal cord injury",
+        "diag_std_subcat": "Trauma",
         "admission_date": "2026-05-20",
         "admission_status": "active",
         "history": [
@@ -140,7 +130,7 @@ DUMMY_PATIENTS = [
         "last_name": "Ollerenshaw",
         "date_of_birth": "1953-11-03",
         "patient_gender": "M",
-        "diag_std_subcat": "Right pontine haemorrhage",
+        "diag_std_subcat": "Stroke: Haemorrhagic",
         "admission_date": "2026-07-01",
         "admission_status": "active",
         "history": [
@@ -157,7 +147,7 @@ DUMMY_PATIENTS = [
         "last_name": "Croft",
         "date_of_birth": "1997-06-19",
         "patient_gender": "F",
-        "diag_std_subcat": "Guillain-Barré syndrome",
+        "diag_std_subcat": "Stroke: Infarct",
         "admission_date": "2026-07-18",
         "admission_status": "active",
         "history": [
@@ -167,6 +157,28 @@ DUMMY_PATIENTS = [
         ],
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _compute_age(dob_str, on_date_str=None):
+    """
+    Age in whole years, computed against admission date (or today if
+    no on_date_str is given).
+    """
+    if not dob_str:
+        return None
+
+    dob = datetime.fromisoformat(str(dob_str)).date()
+
+    if on_date_str:
+        on = datetime.fromisoformat(str(on_date_str)).date()
+    else:
+        on = date.today()
+
+    return on.year - dob.year - ((on.month, on.day) < (dob.month, dob.day))
 
 
 # ---------------------------------------------------------------------------
@@ -247,12 +259,7 @@ def get_walking_status(walk_prob):
 # ---------------------------------------------------------------------------
 
 def seed_clinics(db):
-    """
-    Create the demo clinics if they do not already exist.
-
-    Returns:
-        Dictionary mapping clinic codes to clinic IDs.
-    """
+    """Create the demo clinics if they do not already exist."""
 
     clinic_ids = {}
 
@@ -297,16 +304,7 @@ def seed_clinics(db):
 # ---------------------------------------------------------------------------
 
 def seed_users(db, clinic_ids):
-    """
-    Create the demo users if they do not already exist.
-
-    The user's clinic is resolved from clinic_code.
-
-    Admin users can have clinic_id = NULL.
-
-    Returns:
-        Dictionary mapping email addresses to user IDs.
-    """
+    """Create the demo users if they do not already exist."""
 
     user_ids = {}
 
@@ -330,9 +328,7 @@ def seed_users(db, clinic_ids):
         if user["clinic_code"] is not None:
             clinic_id = clinic_ids[user["clinic_code"]]
 
-        password_hash = generate_password_hash(
-            user["password"]
-        )
+        password_hash = generate_password_hash(user["password"])
 
         cur = db.execute(
             """
@@ -373,10 +369,25 @@ def insert_assessment(
     assessed_on,
     values,
     previous=None,
+    patient_age=None,
+    patient_gender=None,
+    diag_std_subcat=None,
 ):
-    """Compute, interpret and store one assessment."""
+    """
+    Compute, interpret and store one assessment.
 
-    pred = predict(values)
+    `patient_age`, `patient_gender`, and `diag_std_subcat` are required
+    by the phenotype model. They come from the patient record and are
+    merged into `values` before calling `predict()`.
+    """
+
+    # Merge patient-record fields for the phenotype model
+    predict_values = dict(values)
+    predict_values["patient_age"]     = patient_age
+    predict_values["patient_gender"]  = patient_gender
+    predict_values["diag_std_subcat"] = diag_std_subcat
+
+    pred = predict(predict_values)
 
     if "domains" not in pred or not pred["domains"]:
         pred["domains"] = calculate_domain_scores(values)
@@ -387,9 +398,7 @@ def insert_assessment(
         patient_name,
     )
 
-    walking_status = get_walking_status(
-        pred["walk_prob"]
-    )
+    walking_status = get_walking_status(pred["walk_prob"])
 
     columns = [
         "patient_id",
@@ -400,6 +409,8 @@ def insert_assessment(
         "wpi",
         "walk_prob",
         "barrier_score",
+        "cluster",
+        "mfra_score",
         "interpretation",
     ]
 
@@ -419,6 +430,8 @@ def insert_assessment(
         pred["wpi"],
         pred["walk_prob"],
         pred["barrier_score"],
+        pred["cluster"],
+        pred["mfra_score"],
         json.dumps(
             {
                 **text,
@@ -454,8 +467,6 @@ def seed(db):
         - 5 patients
         - assessments for all five patients
 
-    Patient records are distributed between the two clinicians.
-
     Returns:
         (number_of_patients, number_of_assessments)
     """
@@ -470,29 +481,18 @@ def seed(db):
     # Create users
     # ---------------------------------------------------------------
 
-    user_ids = seed_users(
-        db,
-        clinic_ids,
-    )
+    user_ids = seed_users(db, clinic_ids)
 
     clinician_1_id = user_ids["path@qmc.uk"]
     clinician_2_id = user_ids["jay@lut.uk"]
 
     # ---------------------------------------------------------------
-    # Create patients
-    #
-    # Alternate patient ownership between the two clinicians.
+    # Create patients + assessments
     # ---------------------------------------------------------------
 
     n_assessments = 0
 
     for index, p in enumerate(DUMMY_PATIENTS):
-
-        # Patient 1 -> QMC clinician
-        # Patient 2 -> Luton clinician
-        # Patient 3 -> QMC clinician
-        # Patient 4 -> Luton clinician
-        # Patient 5 -> QMC clinician
 
         created_by = (
             clinician_1_id
@@ -532,18 +532,16 @@ def seed(db):
 
         patient_db_id = cur.lastrowid
 
-        patient_name = (
-            f"{p['first_name']} {p['last_name']}"
+        patient_name = f"{p['first_name']} {p['last_name']}"
+
+        # Compute age once per patient — use admission date so it's
+        # stable across all assessments in the history.
+        patient_age = _compute_age(
+            p["date_of_birth"],
+            p["admission_date"],
         )
 
         previous = None
-
-        # -----------------------------------------------------------
-        # Create assessments
-        #
-        # Each assessment is attributed to the same clinician
-        # responsible for the patient.
-        # -----------------------------------------------------------
 
         for assessed_on, profile in p["history"]:
 
@@ -557,6 +555,9 @@ def seed(db):
                 assessed_on=assessed_on,
                 values=values,
                 previous=previous,
+                patient_age=patient_age,
+                patient_gender=p["patient_gender"],
+                diag_std_subcat=p["diag_std_subcat"],
             )
 
             previous = pred

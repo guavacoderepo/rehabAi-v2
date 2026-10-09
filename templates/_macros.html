@@ -1,0 +1,107 @@
+{# Shared template components. Import with:
+   {% import "_macros.html" as m with context %} #}
+
+{% macro icon(name, cls="") -%}
+  <i class="bi bi-{{ name }} {{ cls }}" aria-hidden="true"></i>
+{%- endmacro %}
+
+
+{% macro wordmark() -%}
+  <img src="{{ url_for('static', filename='assets/logo.png') }}" alt="">
+  <span class="wm">Rehab<i>AI</i></span>
+{%- endmacro %}
+
+
+{% macro back_link(url, label) -%}
+  <a class="back" href="{{ url }}">{{ icon('arrow-left') }} {{ label }}</a>
+{%- endmacro %}
+
+
+{% macro flash_messages() -%}
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}
+      <div class="flash" role="alert">{{ icon('info-circle') }} <span>{{ message }}</span></div>
+    {% endfor %}
+  {% endwith %}
+{%- endmacro %}
+
+
+{% macro band_pill(wpi, short=false) -%}
+  {% set b = band_info(wpi) %}
+  <span class="pill {{ b.cls }}"><span class="dot"></span>{{ b.short if short else b.label }}</span>
+{%- endmacro %}
+
+
+{% macro walking_pill(status) -%}
+  {% if status == 'walking' %}
+    <span class="status-pill status-walking"><span class="dot"></span>Walking</span>
+  {% elif status == 'wheelchair' %}
+    <span class="status-pill status-wheelchair"><span class="dot"></span>Wheelchair</span>
+  {% else %}
+    <span class="text-ink-3 small">Not assessed</span>
+  {% endif %}
+{%- endmacro %}
+
+
+{% macro admission_pill(status) -%}
+  <span class="status-pill status-{{ status }}"><span class="dot"></span>{{ status | capitalize }}</span>
+{%- endmacro %}
+
+
+{# WPI change: negative is an improvement because WPI is a barrier index. #}
+{% macro wpi_change(change, since) -%}
+  {% if change is none %}
+    <span class="fst-italic">Baseline assessment</span>
+  {% elif change < 0 %}
+    <span class="fw-semibold text-good">{{ icon('arrow-down') }} Improved by {{ '%.1f' % (change * -1) }}</span> {{ since }}
+  {% elif change > 0 %}
+    <span class="fw-semibold text-bad">{{ icon('arrow-up') }} Increased by {{ '%.1f' % change }}</span> {{ since }}
+  {% else %}
+    <span class="fw-semibold">No change</span> {{ since }}
+  {% endif %}
+{%- endmacro %}
+
+
+{% macro track(pct, cls="") -%}
+  <div class="track {{ cls }}"><i style="width: {{ pct or 0 }}%"></i></div>
+{%- endmacro %}
+
+
+{% macro chart(type, config, cls="chart-box", label="") -%}
+  <div class="{{ cls }}">
+    <canvas data-chart="{{ type }}" data-config='{{ config | tojson }}' role="img" aria-label="{{ label }}"></canvas>
+  </div>
+{%- endmacro %}
+
+
+{% macro chart_scripts() -%}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{%- endmacro %}
+
+
+{% macro empty_state(title, text, url=none, label=none, icon_name="clipboard2-pulse") -%}
+  <div class="panel">
+    <div class="empty-state">
+      {{ icon(icon_name) }}
+      <h3 class="mt-2">{{ title }}</h3>
+      <p>{{ text }}</p>
+      {% if url %}<a class="btn btn-primary mt-2" href="{{ url }}">{{ label }}</a>{% endif %}
+    </div>
+  </div>
+{%- endmacro %}
+
+
+{# Hospital picker for admins; a read-only chip for everyone else. #}
+{% macro scope_control(options, clinic, label) -%}
+  {% if options %}
+    <select class="form-select form-select-sm w-auto" name="clinic" data-autosubmit aria-label="Hospital">
+      <option value="">All hospitals</option>
+      {% for c in options %}
+        <option value="{{ c.id }}" {{ 'selected' if clinic and clinic.id == c.id }}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  {% else %}
+    <span class="scope-chip">{{ icon('hospital') }} {{ label }}</span>
+  {% endif %}
+{%- endmacro %}

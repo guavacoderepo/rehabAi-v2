@@ -1,45 +1,33 @@
 {% extends "base.html" %}
-{% block title %}New prediction · {{ p.first_name }} {{ p.last_name }} · RehadAI{% endblock %}
+{% import "_macros.html" as m with context %}
+
+{% block title %}New prediction · {{ p.name }} · RehabAI{% endblock %}
 
 {% block content %}
 {% set first = p.first_name %}
+{% set values = state['values'] %}
 
-<a class="back" href="{{ url_for('patient', patient_id=p.patient_id) }}">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-       stroke-width="2.4" stroke-linecap="round">
-    <path d="M19 12H5M11 18l-6-6 6-6"/>
-  </svg>
-  Back to {{ first }}
-</a>
+{{ m.back_link(url_for('patients.detail', patient_id=p.patient_id), 'Back to ' ~ first) }}
 
 <div class="wiz-head">
-  <span class="lbl-sm">
-    New prediction · {{ p.first_name }} {{ p.last_name }} · {{ p.patient_id }}
-  </span>
-
+  <span class="lbl-sm">New prediction · {{ p.name }} · {{ p.patient_id }}</span>
   <h1>How is {{ first }} doing today?</h1>
+  <p>Score all 28 admission items as they are <b>today</b>. Hover a number to see what it means.</p>
 
-  <p>
-    Score all 28 admission items as they are <b>today</b>.
-    Hover a number to see what it means.
-  </p>
-
-  {% if previous %}
-    <div class="tipbar" style="margin-top:12px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M12 8v4M12 16h.01"/>
-      </svg>
-
+  {% if state.prefilled_from %}
+    <div class="tipbar">
+      {{ m.icon('info-circle') }}
       <span>
-        Prefilling from last assessment on
-        <b>{{ previous.assessed_on | longdate }}</b>.
-
-        <a href="{{ url_for('new_prediction', patient_id=p.patient_id) }}"
-           style="color:var(--pink);text-decoration:underline;">
-          Clear all
-        </a>
+        Prefilled from the last assessment on <b>{{ state.prefilled_from.assessed_on | longdate }}</b>.
+        Change anything that is different today, or <a href="#" id="clearAll">clear all answers</a>.
+      </span>
+    </div>
+  {% elif previous %}
+    <div class="tipbar">
+      {{ m.icon('lightbulb') }}
+      <span>
+        {{ first }} was last scored on <b>{{ previous.assessed_on | longdate }}</b>.
+        <a href="{{ url_for('assessments.new', patient_id=p.patient_id, prefill=1) }}">Start from those answers</a> instead.
       </span>
     </div>
   {% endif %}
@@ -49,235 +37,137 @@
 <form method="post"
       id="predictForm"
       data-total="28"
-      action="{{ url_for('new_prediction', patient_id=p.patient_id) }}">
+      action="{{ url_for('assessments.new', patient_id=p.patient_id) }}"
+      novalidate>
 
-  <!-- ================================================================
-       Assessment details
-       ================================================================ -->
+  <!-- Assessment details -->
+  <div class="panel">
+    <div class="row g-3 align-items-end">
+      <div class="col-sm-5 col-md-4">
+        <label class="form-label" for="assessed_on">Assessment date</label>
+        <input class="form-control" type="date" id="assessed_on" name="assessed_on"
+               value="{{ state.assessed_on }}" max="{{ today_iso }}" required>
+      </div>
 
-  <div class="dateline">
-
-    <div>
-      <label for="assessed_on">Assessment date</label>
-      <input
-        type="date"
-        id="assessed_on"
-        name="assessed_on"
-        value="{{ assessed_on }}"
-        required
-      >
-    </div>
-
-    <div style="margin-top:16px;">
-      <label>Current walking status</label>
-
-      <div style="
-        display:flex;
-        gap:12px;
-        margin-top:8px;
-        flex-wrap:wrap;
-      ">
-
-        <label style="
-          display:flex;
-          align-items:center;
-          gap:7px;
-          cursor:pointer;
-          font-weight:500;
-        ">
-          <input
-            type="radio"
-            name="walking_status"
-            value="walking"
-            {% if walking_status == 'walking' %}checked{% endif %}
-            required
-          >
-          Walking
-        </label>
-
-        <label style="
-          display:flex;
-          align-items:center;
-          gap:7px;
-          cursor:pointer;
-          font-weight:500;
-        ">
-          <input
-            type="radio"
-            name="walking_status"
-            value="wheelchair"
-            {% if walking_status == 'wheelchair' %}checked{% endif %}
-            required
-          >
-          Wheelchair
-        </label>
-
+      <div class="col-sm-7 col-md-8">
+        <span class="form-label d-block">Current walking status</span>
+        {% for value, label in [('walking', 'Walking'), ('wheelchair', 'Wheelchair')] %}
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="walking_status" id="ws_{{ value }}"
+                   value="{{ value }}" {{ 'checked' if state.walking_status == value }} required>
+            <label class="form-check-label" for="ws_{{ value }}">{{ label }}</label>
+          </div>
+        {% endfor %}
       </div>
     </div>
-
   </div>
 
-
-  <!-- ================================================================
-       Assessment items
-       ================================================================ -->
-
+  <!-- 28 items grouped by domain -->
   {% for d in domains %}
+    <section class="domain-block" data-domain="{{ d.id }}" data-name="{{ d.name }}">
+      <div class="sec">
+        <h2>{{ d.name }}</h2>
+        <span class="count">{{ d['items'] | length }} items</span>
+        <span class="count ms-auto">
+          <span class="domain-filled" data-domain="{{ d.id }}">0</span>/{{ d['items'] | length }} filled
+        </span>
+      </div>
 
-    <div class="sec">
-      <h2>{{ d.name }}</h2>
+      <div class="qcard">
+        {% for it in d['items'] %}
+          {% set scale_values = it['values'] %}
+          {% set current = values.get(it.key) %}
 
-      <span class="count">
-        {{ d['items'] | length }} items
-      </span>
+          <div class="q"
+               data-key="{{ it.key }}"
+               data-label="{{ it.label }}"
+               data-tag="{{ it.tag }}"
+               data-domain="{{ d.id }}"
+               data-min="{{ scale_values[0] }}"
+               data-max="{{ scale_values[-1] }}"
+               data-dir="{{ 1 if it.scale == 'fim' else -1 }}">
 
-      <span
-        class="domain-status"
-        style="font-size:12px;color:var(--text-muted);margin-left:8px;"
-      >
-        <span class="domain-filled">0</span>
-        /{{ d['items'] | length }} filled
-      </span>
-    </div>
-
-
-    <div class="qcard">
-
-      {% for it in d['items'] %}
-
-        {% set scale = it.scale %}
-        {% set scale_values = it['values'] %}
-
-        <div
-          class="q"
-          data-min="{{ scale_values[0] }}"
-          data-max="{{ scale_values[-1] }}"
-          data-dir="{{ 1 if scale == 'fim' else -1 }}"
-          data-domain="{{ d.id }}"
-          data-key="{{ it.key }}"
-        >
-
-          <div class="q-l">
-
-            <b>{{ it.label }}</b>
-
-            {% if values is mapping %}
-              {% set current = values.get(it.key) %}
-            {% else %}
-              {% set current = none %}
-            {% endif %}
-
-            <div class="ans {% if current is none %}empty{% endif %}">
-
-              {% if current is not none %}
-                {{ it.anchors[current] }}
-              {% else %}
-                <span style="color:var(--bad);">
-                  ⚠️ Not answered yet
-                </span>
-              {% endif %}
-
+            <div class="q-l">
+              <b>{{ it.label }}</b>
+              <div class="ans {{ 'empty' if current is none }}">
+                {{ it.anchors[current] if current is not none else 'Not answered yet' }}
+              </div>
             </div>
 
-          </div>
-
-
-          <div class="q-r">
-
-            <span class="stag">
-              {{ it.tag }}
-            </span>
-
-            <div class="scale">
-
-              {% for v in scale_values %}
-
-                <input
-                  type="radio"
-                  id="{{ it.key }}_{{ v }}"
-                  name="{{ it.key }}"
-                  value="{{ v }}"
-                  data-anchor="{{ it.anchors[v] }}"
-                  {% if current is not none and current == v %}checked{% endif %}
-                  required
-                >
-
-                <label
-                  for="{{ it.key }}_{{ v }}"
-                  title="{{ it.anchors[v] }}"
-                >
-                  {{ v }}
-                </label>
-
-              {% endfor %}
-
+            <div class="q-r">
+              <span class="stag">{{ it.tag }}</span>
+              <div class="scale" role="radiogroup" aria-label="{{ it.label }}">
+                {% for v in scale_values %}
+                  <input type="radio"
+                         id="{{ it.key }}_{{ v }}"
+                         name="{{ it.key }}"
+                         value="{{ v }}"
+                         data-anchor="{{ it.anchors[v] }}"
+                         {{ 'checked' if current == v }}
+                         required>
+                  <label for="{{ it.key }}_{{ v }}" title="{{ it.anchors[v] }}">{{ v }}</label>
+                {% endfor %}
+              </div>
             </div>
-
           </div>
-
-        </div>
-
-      {% endfor %}
-
-    </div>
-
+        {% endfor %}
+      </div>
+    </section>
   {% endfor %}
 
-
-  <!-- ================================================================
-       Footer
-       ================================================================ -->
-
-  <div class="foot" id="foot">
-
+  <!-- Sticky footer -->
+  <div class="sticky-foot">
     <div>
-
-      <div
-        class="cnt"
-        style="font-size:12.5px;color:var(--ink-2)"
-      >
-        0 of 28 answered
-      </div>
-
-      <div class="mini">
-        <i style="width:0%"></i>
-      </div>
-
+      <div class="small text-ink-2" id="answeredCount">0 of 28 answered</div>
+      <div class="track"><i id="answeredTrack"></i></div>
     </div>
 
-    <div class="spacer"></div>
-
-    <a
-      class="btn btn-ghost"
-      href="{{ url_for('patient', patient_id=p.patient_id) }}"
-    >
-      Cancel
-    </a>
-
-    <button
-      class="btn btn-primary submit"
-      type="submit"
-      id="submitBtn"
-      disabled
-    >
-      Save and predict
-
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-      >
-        <path d="M5 12h14M13 6l6 6-6 6"/>
-      </svg>
-
-    </button>
-
+    <div class="ms-auto d-flex gap-2">
+      <a class="btn btn-ghost" href="{{ url_for('patients.detail', patient_id=p.patient_id) }}">Cancel</a>
+      <button class="btn btn-primary" type="button" id="reviewBtn" disabled>
+        Review answers {{ m.icon('eye') }}
+      </button>
+    </div>
   </div>
-
 </form>
 
+
+{% endblock %}
+
+{% block modals %}
+<!-- Preview modal: shown before the prediction is run -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <span class="lbl-sm">Review before prediction</span>
+          <h2 class="modal-title fs-5 mt-1" id="previewTitle">{{ p.name }} · {{ p.patient_id }}</h2>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-sm-4"><div class="tile py-2"><div class="lbl mb-1">Assessment date</div><b id="previewDate">—</b></div></div>
+          <div class="col-sm-4"><div class="tile py-2"><div class="lbl mb-1">Walking status</div><b id="previewWalking">—</b></div></div>
+          <div class="col-sm-4"><div class="tile py-2"><div class="lbl mb-1">Items scored</div><b>28 / 28</b></div></div>
+        </div>
+
+        <div id="previewBody"></div>
+
+        <p class="small text-ink-3 mt-3 mb-0">
+          {{ m.icon('info-circle') }} Functional attainment is a quick summary of the answers
+          (higher is better). The WPI, walking probability and barrier score are calculated by the
+          model when you confirm, and the result is saved to {{ first }}'s record.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ m.icon('pencil') }} Edit answers</button>
+        <button type="button" class="btn btn-primary" id="confirmSubmit">Confirm and predict {{ m.icon('arrow-right') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

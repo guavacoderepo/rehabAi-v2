@@ -131,6 +131,24 @@ def seed_db_command():
         )
 
 
+def ensure_database():
+    """Create and seed the database on first run (used by `python app.py`)."""
+
+    if database_ready():
+        return
+
+    from seed import seed
+
+    init_db()
+    n_patients, n_assessments = seed(get_db())
+
+    current_app.logger.info(
+        "Created database with %s patients and %s assessments.",
+        n_patients,
+        n_assessments,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Flask initialisation
 # ---------------------------------------------------------------------------

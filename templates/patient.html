@@ -1,794 +1,218 @@
 {% extends "base.html" %}
+{% import "_macros.html" as m with context %}
 
-{% block title %}
-  {{ p.first_name }} {{ p.last_name }} · RehabAI
-{% endblock %}
-
+{% block title %}{{ p.name }} · RehabAI{% endblock %}
 
 {% block content %}
 
-<a class="back" href="{{ url_for('patients') }}">
+{{ m.back_link(url_for('patients.index'), 'All patients') }}
 
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2.4"
-    stroke-linecap="round"
-  >
-    <path d="M19 12H5M11 18l-6-6 6-6" />
-  </svg>
-
-  All patients
-
-</a>
-
-
+<!-- Header -->
 <div class="phead">
+  <div class="av av-lg {{ p.patient_id | tint }}">{{ p.first_name[0] }}{{ p.last_name[0] }}</div>
 
-  <div class="av av-lg {{ p.patient_id | tint }}">
-    {{ p.first_name[0] }}{{ p.last_name[0] }}
-  </div>
-
-
-  <div style="flex:1;min-width:230px">
-
-    <h1>
-      {{ p.first_name }} {{ p.last_name }}
-    </h1>
-
-    <div class="dx">
-      {{ p.diag_std_subcat }}
+  <div class="flex-grow-1">
+    <h1>{{ p.name }}</h1>
+    <div class="dx">{{ p.diag_std_subcat }}</div>
+    <div class="meta">
+      Clinician: <strong>{{ p.clinician_name }}</strong>
+      {% if p.hospital_name %}<span class="mx-1">·</span> Hospital: <strong>{{ p.hospital_name }}</strong>{% endif %}
     </div>
-
-
-    <!-- Clinician and hospital -->
-
-    {% if clinician_name or hospital_name %}
-
-      <div
-        style="
-          display:flex;
-          align-items:center;
-          gap:9px;
-          margin-top:7px;
-          color:var(--ink-3);
-          font-size:13.5px;
-          flex-wrap:wrap;
-        "
-      >
-
-        {% if clinician_name %}
-
-          <span>
-            Clinician:
-            <strong
-              style="
-                color:var(--ink-2);
-                font-weight:600;
-              "
-            >
-              {{ clinician_name }}
-            </strong>
-          </span>
-
-        {% endif %}
-
-
-        {% if clinician_name and hospital_name %}
-
-          <span
-            style="
-              color:var(--ink-4);
-              font-size:14px;
-            "
-          >
-            ·
-          </span>
-
-        {% endif %}
-
-
-        {% if hospital_name %}
-
-          <span>
-            Hospital:
-            <strong
-              style="
-                color:var(--ink-2);
-                font-weight:600;
-              "
-            >
-              {{ hospital_name }}
-            </strong>
-          </span>
-
-        {% endif %}
-
-      </div>
-
-    {% endif %}
-
-
   </div>
 
-
-  <!-- New prediction -->
-
-  <a
-    class="btn btn-primary"
-    href="{{ url_for('new_prediction', patient_id=p.patient_id) }}"
-  >
-
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2.5"
-      stroke-linecap="round"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-
-    New prediction
-
-  </a>
-
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-ghost" href="{{ url_for('patients.edit', patient_id=p.patient_id) }}">{{ m.icon('pencil') }} Edit</a>
+    <a class="btn btn-primary" href="{{ url_for('assessments.new', patient_id=p.patient_id, prefill=1 if latest else none) }}">
+      {{ m.icon('plus-lg') }} New prediction
+    </a>
+  </div>
 </div>
 
 <div class="facts">
-
-  <span>
-    {{ p.patient_id }}
+  <span>{{ p.patient_id }}</span>
+  <span>NHS {{ p.nhs_number }}</span>
+  <span>{{ p.date_of_birth | age }} years, {{ p.patient_gender | gender | lower }}</span>
+  <span>Admitted <b>{{ p.admission_date | longdate }}</b></span>
+  <span>{{ p.admission_status | capitalize }}</span>
+  <span>Walking status
+    {% if latest %}
+      <b class="{{ 'text-good' if latest.walking_status == 'walking' else 'text-bad' }}">
+        {{ m.icon('check-lg' if latest.walking_status == 'walking' else 'x-lg') }} {{ latest.walking_status | capitalize }}
+      </b>
+    {% else %}<b>—</b>{% endif %}
   </span>
 
-  <span>
-    NHS {{ p.nhs_number }}
-  </span>
-
-  <span>
-    {% if p.date_of_birth %}
-      {{ p.date_of_birth | age }} years,
-    {% else %}
-      —,
-    {% endif %}
-    {{ 'female' if p.patient_gender == 'F'
-      else 'male' if p.patient_gender == 'M'
-      else 'other' }}
-  </span>
-
-  <span>
-    Admitted
-    <b>{{ p.admission_date | longdate }}</b>
-  </span>
-
-  <span>
-    Walking Status
-    <b class="{% if latest and latest.walking_status == 'walking' %}walking-good{% else %}walking-bad{% endif %}">
-      {% if latest and latest.walking_status == 'walking' %}
-        ✓ Walking
-      {% elif latest %}
-        × Wheelchair
-      {% else %}
-        —
-      {% endif %}
-    </b>
-  </span>
+  {% if latest and latest.mfra_score >= 0.75 %}
+    <span class="text-danger mfra-flag"
+          data-bs-toggle="tooltip"
+          data-bs-placement="top"
+          title="MFRA score {{ '%.2f' % latest.mfra_score }} — high fall risk (threshold 0.75)">
+      {{ m.icon('exclamation-triangle-fill', 'mfra-warn') }}
+      <b>High fall risk</b>
+    </span>
+  {% endif %}
 </div>
-
 
 
 {% if latest %}
+{% set band = band_info(latest.wpi) %}
 
-
-<!-- =========================================================
-     SUMMARY TILES
-     ========================================================= -->
-
-<div class="tiles">
-
-
-  <!-- Walking probability -->
-
-  <div class="tile hero">
-
-    <div
-      class="lbl"
-      style="color:var(--ink-3)"
-    >
-      Chance of walking
+<!-- Summary tiles -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="tile hero">
+      <div class="lbl">Chance of walking</div>
+      <div class="v num">{{ '%.1f' % latest.walk_prob }}<small>%</small></div>
+      <div class="foot">At discharge</div>
     </div>
-
-    <div
-      class="v num"
-      style="color:var(--ink-1)"
-    >
-      {{ '%.1f' % latest.walk_prob }}
-
-      <small style="color:var(--ink-3)">
-        %
-      </small>
-    </div>
-
-    <div
-      class="foot"
-      style="color:var(--ink-3)"
-    >
-      At discharge
-    </div>
-
   </div>
 
-
-  <!-- WPI -->
-
-  <div class="tile">
-
-    <div
-      class="lbl"
-      style="color:var(--ink-3)"
-    >
-      WPI score
+  <div class="col-6 col-lg-3">
+    <div class="tile">
+      <div class="lbl">WPI score</div>
+      <div class="v num">{{ '%.1f' % latest.wpi }}<small>points</small></div>
+      <div class="foot">{{ m.wpi_change(view.wpi_change, 'since admission') }}</div>
     </div>
-
-    <div
-      class="v num"
-      style="color:var(--ink-1)"
-    >
-      {{ '%.1f' % latest.wpi }}
-
-      <small style="color:var(--ink-3)">
-        points
-      </small>
-    </div>
-
-
-    <div class="foot">
-
-      <span
-        style="
-          color:var(--{{ 'bad' if delta >= 0 else 'good' }});
-          font-weight:600
-        "
-      >
-
-        {% if delta >= 0 %}
-
-          ▼ Declined by {{ '%.1f' % delta }}
-
-        {% else %}
-
-          ▲ Improved by {{ '%.1f' % (delta * -1) }}
-
-        {% endif %}
-
-      </span>
-
-      since admission
-
-    </div>
-
   </div>
 
-
-  <!-- Barrier burden -->
-
-  <div class="tile">
-
-    <div
-      class="lbl"
-      style="color:var(--ink-3)"
-    >
-      Barrier burden
+  <div class="col-6 col-lg-3">
+    <div class="tile">
+      <div class="lbl">Barrier burden</div>
+      <div class="v num text-{{ band.var }}">{{ '%.1f' % latest.barrier_score }}<small>/10</small></div>
+      <div class="foot">{{ m.band_pill(latest.wpi, short=true) }}</div>
     </div>
-
-
-    <div
-      class="v num"
-      style="color:var(--{{ wpi_barrier_var(latest.wpi) }})"
-    >
-
-      {{ '%.1f' % latest.barrier_score }}
-
-      <small style="color:var(--ink-3)">
-        /10
-      </small>
-
-    </div>
-
-
-    <div class="foot">
-
-      <span class="pill {{ wpi_barrier_class(latest.wpi) }}">
-
-        <span class="dot"></span>
-
-        {{ wpi_barrier_band(latest.wpi) }}
-
-      </span>
-
-    </div>
-
   </div>
 
-
-  <!-- Assessments -->
-
-  <div class="tile">
-
-    <div
-      class="lbl"
-      style="color:var(--ink-3)"
-    >
-      Assessments
+  <div class="col-6 col-lg-3">
+    <div class="tile">
+      <div class="lbl">Assessments</div>
+      <div class="v num">{{ history | length }}</div>
+      <div class="foot">Last one {{ latest.assessed_on | ago }}</div>
     </div>
-
-    <div
-      class="v num"
-      style="color:var(--ink-1)"
-    >
-      {{ history | length }}
-    </div>
-
-    <div
-      class="foot"
-      style="color:var(--ink-3)"
-    >
-      Last one {{ latest.assessed_on | ago }}
-    </div>
-
   </div>
-
 </div>
 
 
-
-<!-- =========================================================
-     PROGRESS
-     ========================================================= -->
-
+<!-- Progress chart -->
 <div class="panel">
-
-  <div class="panel-head">
-
-    <h2>
-      {{ p.first_name }}'s progress
-    </h2>
-
-    <div class="spacer"></div>
-
-
-    <div class="seg" id="metricSeg">
-
-      <button
-        type="button"
-        class="on"
-        data-metric="wpi"
-      >
-        WPI
-      </button>
-
-      <button
-        type="button"
-        data-metric="walk"
-      >
-        Walking
-      </button>
-
+  <div class="panel-head mb-1">
+    <h2>{{ p.first_name }}'s progress</h2>
+    <div class="seg ms-auto" id="metricSeg">
+      <button type="button" class="on" data-metric="wpi">WPI</button>
+      <button type="button" data-metric="walk">Walking</button>
     </div>
-
   </div>
 
+  <p class="small text-ink-3" data-hint="wpi">Lower WPI means fewer barriers to walking.</p>
+  <p class="small text-ink-3 d-none" data-hint="walk">Predicted chance of walking at each assessment.</p>
 
-  <p
-    class="hint"
-    data-hint="wpi"
-  >
-    Higher scores indicate improvement.
-  </p>
-
-
-  <p
-    class="hint hide"
-    data-hint="walk"
-  >
-    Model output at each assessment.
-  </p>
-
-
-  <div
-    class="chartbox"
-    id="chartbox"
-    data-chart='[
-      {%- for c in chart -%}
-
-        {
-          "wpi": {{ '%.1f' % c.wpi }},
-          "walk": {{ '%.1f' % c.walk }},
-          "label": "{{ c.date | shortdate }}",
-          "long": "{{ c.date | longdate }}"
-        }
-
-        {%- if not loop.last -%},{%- endif -%}
-
-      {%- endfor -%}
-    ]'
-  ></div>
-
+  {{ m.chart('progress', {'points': view.chart, 'toggle': '#metricSeg'}, 'chart-box lg', p.first_name ~ ' progress chart') }}
 </div>
 
 
-
-<!-- =========================================================
-     PREDICTION HISTORY HEADER
-     ========================================================= -->
-
-<div
-  class="panel-head"
-  style="margin:28px 0 16px"
->
-
-  <h2>
-    Prediction history
-  </h2>
-
-  <span class="pill p-soft">
-    {{ history | length }} records
-  </span>
-
+<!-- Prediction history -->
+<div class="panel-head mt-4 mb-3">
+  <h2>Prediction history</h2>
+  <span class="pill p-soft">{{ history | length }} records</span>
 </div>
 
-
-
-<!-- =========================================================
-     PREDICTION TIMELINE
-     ========================================================= -->
 
 <div class="tl">
-
-  {% for e in entries %}
-
+  {% for e in view.timeline %}
     {% set a = e.row %}
-
-
-    <div
-      class="entry {% if e.is_latest %}first open{% endif %}"
-    >
-
+    {% set mfra_alert = a.mfra_score >= 0.75 %}
+    <div class="entry {{ 'first' if e.is_latest }}">
       <div class="ecard">
-
-
-        <!-- Assessment header -->
-
-        <button
-          type="button"
-          class="ehead"
-        >
-
+        <button type="button"
+                class="ehead {{ '' if e.is_latest else 'collapsed' }}"
+                data-bs-toggle="collapse"
+                data-bs-target="#entry-{{ a.id }}"
+                aria-expanded="{{ 'true' if e.is_latest else 'false' }}"
+                aria-controls="entry-{{ a.id }}">
           <div class="ed">
-
-            <b>
-              {{ a.assessed_on | shortdate }}
-            </b>
-
-            <span>
-
-              {% if e.is_latest %}
-
-                most recent
-
-              {% else %}
-
-                assessment {{ e.index }}
-
-              {% endif %}
-
-            </span>
-
+            <b>{{ a.assessed_on | shortdate }}</b>
+            <span>{{ 'most recent' if e.is_latest else 'assessment ' ~ e.index }}</span>
           </div>
-
-
-          <!-- Walking -->
 
           <div class="emet">
-
-            <div>
-
-              <span>
-                Walking
-              </span>
-
-              <b class="num">
-                {{ '%.1f' % a.walk_prob }}%
-              </b>
-
+            <div><span>Walking</span><b class="num">{{ '%.1f' % a.walk_prob }}%</b></div>
+            <div><span>WPI</span><b class="num">{{ '%.1f' % a.wpi }}</b></div>
+            <div><span>Barrier</span><b class="num text-{{ band_info(a.wpi).var }}">{{ '%.1f' % a.barrier_score }}/10</b></div>
+            <div class="d-inline-flex align-items-center">
+              {% if mfra_alert %}
+                <span class="mfra-alert"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      title="Estimated high fall risk. Formal falls assessment recommended.">
+                  {{ m.icon('exclamation-triangle-fill', 'mfra-warn') }}
+                </span>
+              {% endif %}
             </div>
-
-
-            <!-- WPI -->
-
-            <div>
-
-              <span>
-                WPI
-              </span>
-
-              <b class="num">
-                {{ '%.1f' % a.wpi }}
-              </b>
-
-            </div>
-
-
-            <!-- Barrier burden -->
-
-            <div>
-
-              <span>
-                Barrier
-              </span>
-
-              <b
-                class="num"
-                style="color:var(--{{ wpi_barrier_var(a.wpi) }})"
-              >
-                {{ '%.1f' % a.barrier_score }}/10
-              </b>
-
-            </div>
-
           </div>
 
-
-          <!-- Barrier burden band -->
-
-          <span
-            class="pill {{ wpi_barrier_class(a.wpi) }}"
-          >
-
-            <span class="dot"></span>
-
-            {{ wpi_barrier_band(a.wpi) }}
-
-          </span>
-
-
-          <!-- Chevron -->
-
-          <svg
-            class="chev"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.2"
-            stroke-linecap="round"
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-
+          {{ m.band_pill(a.wpi) }}
+          {{ m.icon('chevron-down', 'chev') }}
         </button>
 
-
-
-        <!-- Assessment details -->
-
-        <div class="ebody">
-
-
-          <!-- Interpretation -->
-
-          <div class="quote">
-
-            <h4>
-              What this means
-            </h4>
-
-            <p class="lead">
-              {{ e.text.lead }}
-            </p>
-
-            <p>
-              {{ e.text.body }}
-            </p>
-
-
-            {% if e.text.recs %}
-
-              <ul>
-
-                {% for r in e.text.recs %}
-
-                  <li>
-                    {{ r }}
-                  </li>
-
-                {% endfor %}
-
-              </ul>
-
+        <div id="entry-{{ a.id }}" class="collapse {{ 'show' if e.is_latest }}">
+          <div class="ebody">
+            {% if mfra_alert %}
+              <div class="alert alert-danger d-flex align-items-center gap-2 mb-3"
+                  role="alert" aria-live="polite">
+                {{ m.icon('exclamation-triangle-fill', 'mfra-warn') }}
+                <div>
+                  <strong>This patient is estimated to be at high risk of falling.</strong></br>
+                  This is not a formal MFRA — a formal falls assessment is recommended.
+                </div>
+              </div>
             {% endif %}
 
-          </div>
+            <div class="quote">
+              <h4>What this means</h4>
+              <p class="lead">{{ e.text.lead }}</p>
+              <p>{{ e.text.body }}</p>
+              {% if e.text.recs %}
+                <ul>{% for r in e.text.recs %}<li>{{ r }}</li>{% endfor %}</ul>
+              {% endif %}
+            </div>
 
-
-
-          <!-- Domains -->
-
-          <div class="lbl-sm">
-            Strengths and areas to monitor
-          </div>
-
-
-          <div class="bars">
-
-            {% for d in domains %}
-
-              <div class="bar">
-
-                <span>
-                  {{ d.name }}
-                </span>
-
-                <span class="tr">
-
-                  <i
-                    style="
-                      width:{{ e.text.domains[d.id] }}%
-                    "
-                  ></i>
-
-                </span>
-
-                <span class="pc">
-                  {{ e.text.domains[d.id] }}%
-                </span>
-
+            {% if e.text.domains %}
+              <div class="lbl-sm">Strengths and areas to monitor</div>
+              <div class="bars">
+                {% for d in view.domains %}
+                  {% set pct = e.text.domains[d.id] %}
+                  <div class="bar">
+                    <span>{{ d.name }}</span>
+                    {{ m.track(pct) }}
+                    <span class="pc">{{ pct }}%</span>
+                  </div>
+                {% endfor %}
               </div>
+            {% endif %}
 
-            {% endfor %}
-
-          </div>
-
-          <!-- Full result -->
-
-          <div style="margin-top:14px">
-
-            <a
-              class="btn btn-ghost"
-              style="
-                padding:8px 16px;
-                font-size:13.5px
-              "
-              href="{{ url_for(
-                'assessment',
-                patient_id=p.patient_id,
-                assessment_id=a.id
-              ) }}"
-            >
-              Open full result
+            <a class="btn btn-sm btn-ghost mt-3"
+               href="{{ url_for('assessments.detail', patient_id=p.patient_id, assessment_id=a.id) }}">
+              Open full result {{ m.icon('arrow-right') }}
             </a>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
-
   {% endfor %}
-
 </div>
-
 
 
 {% else %}
 
-
-<!-- =========================================================
-     NO PREDICTIONS
-     ========================================================= -->
-
-<div class="panel">
-
-  <div class="empty-state">
-
-    <h3>
-      No predictions yet
-    </h3>
-
-    <p>
-      Score the 28 admission items to get
-      {{ p.first_name }}'s first prediction.
-    </p>
-
-    <a
-      class="btn btn-primary"
-      style="margin-top:18px"
-      href="{{ url_for('new_prediction', patient_id=p.patient_id) }}"
-    >
-      Start the first assessment
-    </a>
-
-  </div>
-
-</div>
-
+  {{ m.empty_state(
+      "No predictions yet",
+      "Score the 28 admission items to get " ~ p.first_name ~ "'s first prediction.",
+      url_for('assessments.new', patient_id=p.patient_id),
+      "Start the first assessment"
+  ) }}
 
 {% endif %}
 
-
-
-<!-- =========================================================
-     CHART INITIALISATION
-     ========================================================= -->
-
-<script>
-
-document.addEventListener('DOMContentLoaded', function () {
-
-  setTimeout(function () {
-
-    const chartbox =
-      document.getElementById('chartbox');
-
-
-    if (
-      chartbox &&
-      chartbox.dataset.chart
-    ) {
-
-      try {
-
-        const data =
-          JSON.parse(chartbox.dataset.chart);
-
-
-        if (data.length > 0) {
-
-          if (
-            typeof window.initChart === 'function'
-          ) {
-
-            window.initChart('wpi');
-
-          } else {
-
-            const wpiBtn =
-              document.querySelector(
-                '[data-metric="wpi"]'
-              );
-
-            if (wpiBtn) {
-              wpiBtn.click();
-            }
-
-          }
-
-        }
-
-      } catch (e) {
-
-        console.log(
-          'Chart data error:',
-          e
-        );
-
-      }
-
-    }
-
-  }, 100);
-
-});
-
-</script>
-
-
 {% endblock %}
+
+{% block vendor_scripts %}{% if latest %}{{ m.chart_scripts() }}{% endif %}{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+
+{% block title %}{{ 'Edit' if editing else 'Add' }} patient · RehabAI{% endblock %}
+
+{% block content %}
+
+{% if editing %}
+  {{ m.back_link(url_for('patients.detail', patient_id=p.patient_id), 'Back to ' ~ p.first_name) }}
+{% else %}
+  {{ m.back_link(url_for('patients.index'), 'All patients') }}
+{% endif %}
+
+<div class="page-head">
+  <h1>{{ 'Edit patient' if editing else 'Add patient' }}</h1>
+  <p>
+    {% if editing %}
+      Update the patient's details. Identifiers, sex and admission date are locked once a record exists.
+    {% else %}
+      Enter the patient's details to create a new rehabilitation record for {{ g.user.clinic_name or 'your hospital' }}.
+    {% endif %}
+  </p>
+</div>
+
+<form class="panel p-4"
+      method="post"
+      action="{{ url_for('patients.edit', patient_id=p.patient_id) if editing else url_for('patients.create') }}">
+
+  <h2 class="fs-5 mb-3">Patient details</h2>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <label class="form-label" for="patient_id">Patient number</label>
+      <input class="form-control" id="patient_id" name="patient_id" value="{{ p.patient_id or '' }}"
+             placeholder="e.g. ROC-4872" required {{ 'readonly' if editing }}>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label" for="nhs_number">NHS number</label>
+      <input class="form-control" id="nhs_number" name="nhs_number" value="{{ p.nhs_number or '' }}"
+             placeholder="e.g. 943 721 6081" required {{ 'readonly' if editing }}>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label" for="first_name">First name</label>
+      <input class="form-control" id="first_name" name="first_name" value="{{ p.first_name or '' }}" required>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label" for="last_name">Last name</label>
+      <input class="form-control" id="last_name" name="last_name" value="{{ p.last_name or '' }}" required>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label" for="date_of_birth">Date of birth</label>
+      <input class="form-control" id="date_of_birth" name="date_of_birth" type="date"
+             value="{{ p.date_of_birth or '' }}" required>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label" for="patient_gender">Sex</label>
+      <select class="form-select" id="patient_gender" name="patient_gender" required {{ 'disabled' if editing }}>
+        <option value="">Select</option>
+        {% for value, label in genders %}
+          <option value="{{ value }}" {{ 'selected' if p.patient_gender == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <h2 class="fs-5 mb-3">Rehabilitation details</h2>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label" for="diag_std_subcat">Primary diagnosis</label>
+      <select class="form-select" id="diag_std_subcat" name="diag_std_subcat" required>
+        <option value="">Select diagnosis</option>
+        {% for value, label in diagnoses %}
+          <option value="{{ value }}" {{ 'selected' if p.diag_std_subcat == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label" for="admission_date">Admission date</label>
+      <input class="form-control" id="admission_date" name="admission_date" type="date"
+             value="{{ p.admission_date or '' }}" required {{ 'readonly' if editing }}>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+    <a class="btn btn-ghost"
+       href="{{ url_for('patients.detail', patient_id=p.patient_id) if editing else url_for('patients.index') }}">Cancel</a>
+    <button class="btn btn-primary" type="submit">
+      {{ m.icon('check-lg') }} {{ 'Save changes' if editing else 'Add patient' }}
+    </button>
+  </div>
+</form>
+
+{% endblock %}

@@ -2,67 +2,81 @@
 RehabAI — Scoring instruments, WPI calculation, and outcome prediction.
 """
 
-from asyncio.log import logger
-import os
-import json
+import logging
 import joblib
 import shap
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-
-def load_rehabai_artifacts(model_dir="rehabai_models/"):
-    """Load all RehabAI artifacts from disk."""
-    calibrator_model = joblib.load(os.path.join(model_dir, "calibrator_model.joblib"))
-    
-    with open(os.path.join(model_dir, "feature_bin_specs.json"), "r") as f:
-        feature_bin_specs = json.load(f)
-    
-    with open(os.path.join(model_dir, "bin_imputation_values.json"), "r") as f:
-        bin_imputation_values = json.load(f)
-    
-    with open(os.path.join(model_dir, "quantile_bands.json"), "r") as f:
-        quantile_bands = json.load(f)
-    
-    with open(os.path.join(model_dir, "wpi_features.json"), "r") as f:
-        wpi_features = json.load(f)
-    
-    with open(os.path.join(model_dir, "numeric_features.json"), "r") as f:
-        numeric_features = json.load(f)
-    
-    with open(os.path.join(model_dir, "categorical_features.json"), "r") as f:
-        categorical_features = json.load(f)
-    
-    with open(os.path.join(model_dir, "bin_point_mapping.json"), "r") as f:
-        bin_point_mapping = json.load(f)
-    
-    return {
-        "feature_bin_specs": feature_bin_specs,
-        "bin_imputation_values": bin_imputation_values,
-        "quantile_bands": quantile_bands,
-        "calibrator_model": calibrator_model,
-        "wpi_features": wpi_features,
-        "numeric_features": numeric_features,
-        "categorical_features": categorical_features,
-        "bin_point_mapping": bin_point_mapping,
-    }
+logger = logging.getLogger(__name__)
 
 
-# Load all saved artifacts
-artifacts = load_rehabai_artifacts("rehabai_models/")
+# =============================================================
+# Artifact loading
+# =============================================================
 
-FEATURE_BIN_SPECS = artifacts["feature_bin_specs"]
-BIN_IMPUTATION_VALUES = artifacts["bin_imputation_values"]
-QUANTILE_BANDS = artifacts["quantile_bands"]
-CALIBRATOR_MODEL = artifacts["calibrator_model"]
-FINAL_WPI_FEATURES = artifacts["wpi_features"]
-numeric_features = artifacts["numeric_features"]
-categorical_features = artifacts["categorical_features"]
-BIN_POINT_MAPPING = artifacts["bin_point_mapping"]
+def load_rehabai_artifacts(
+    model_path="rehabai_models/rehabai_artifacts.joblib"
+):
+    """Load all RehabAI artifacts from one Joblib file."""
+
+    return joblib.load(model_path)
+
+artifacts = load_rehabai_artifacts()
+
+# =============================================================
+# WPI
+# =============================================================
+
+wpi_artifacts = artifacts["wpi"]
+
+FEATURE_BIN_SPECS = wpi_artifacts["feature_bin_specs"]
+BIN_IMPUTATION_VALUES = wpi_artifacts["bin_imputation_values"]
+QUANTILE_BANDS = wpi_artifacts["quantile_bands"]
+CALIBRATOR_MODEL = wpi_artifacts["calibrator_model"]
+
+FINAL_WPI_FEATURES = wpi_artifacts["wpi_features"]
+
+numeric_features = wpi_artifacts["numeric_features"]
+categorical_features = wpi_artifacts["categorical_features"]
+
+BIN_POINT_MAPPING = wpi_artifacts["bin_point_mapping"]
 
 
+# =============================================================
+# Phenotype
+# =============================================================
+
+phenotype_artifacts = artifacts["phenotype"]
+
+PHENOTYPE_PREPROCESSOR = phenotype_artifacts["preprocessor"]
+KMEANS_MODEL = phenotype_artifacts["kmeans_model"]
+
+PHENOTYPE_FEATURES = phenotype_artifacts["features"]
+
+NUM_PHENOTYPE = phenotype_artifacts["numeric_features"]
+CAT_PHENOTYPE = phenotype_artifacts["categorical_features"]
+
+
+# =============================================================
+# Reference data
+# =============================================================
+
+reference_artifacts = artifacts["reference"]
+
+PHENOTYPE_REFERENCE_DATASET = reference_artifacts[
+    "patient_dataset"
+]
+
+DOMAIN_PROFILE = reference_artifacts[
+    "domain_profile"
+]
+
+# =============================================================
 # UK ROC scales
+# =============================================================
+
 SCALES = {
     "fim": {
         "min": 1, "max": 7, "dir": 1, "tag": "FIM",
@@ -163,7 +177,7 @@ DOMAINS = [
             ("fimfam_toileting_adm", "Toileting", "fim"),
             ("npds_bathing_adm", "Bathing support", "npds"),
             ("npds_skin_pressure_adm", "Skin care/pressure", "npds"),
-            ("npds_pressure_adm", "Pressure relief", "npds_binary"),  # 0 or 5 only
+            ("npds_pressure_adm", "Pressure relief", "npds_binary"),
         ],
     },
     {
@@ -177,7 +191,7 @@ DOMAINS = [
             ("nis_cognitive_adm", "Cognitive impairment", "nis"),
             ("nis_perceptual_adm", "Perceptual impairment", "nis"),
             ("npds_safety_adm", "Safety supervision", "npds_3points"),
-            ("npds_specialing_adm", "1:1 nursing (specialing)", "npds_binary"),  # 0 or 5 only
+            ("npds_specialing_adm", "1:1 nursing (specialing)", "npds_binary"),
         ],
     },
     {
@@ -189,7 +203,7 @@ DOMAINS = [
             ("nis_fatigue_adm", "Fatigue", "nis"),
             ("nis_motor_lower_left_adm", "Motor: left leg", "nis"),
             ("nis_motor_lower_right_adm", "Motor: right leg", "nis"),
-            ("nis_motor_trunk_adm", "Trunk control", "nis_special"),  # 0-2 only
+            ("nis_motor_trunk_adm", "Trunk control", "nis_special"),
             ("nis_motor_upper_left_adm", "Motor: left arm", "nis"),
             ("nis_motor_upper_right_adm", "Motor: right arm", "nis"),
             ("nis_sensation_adm", "Sensation", "nis"),
@@ -208,6 +222,67 @@ ITEMS = [
 ITEM_KEYS = [i["key"] for i in ITEMS]
 assert len(ITEM_KEYS) == 28, f"Expected 28 items, found {len(ITEM_KEYS)}"
 
+
+# =============================================================
+# MFRA — Modified Falls Risk Assessment
+#
+# A subset of the same 28 UK ROC admission items, re-grouped into
+# 3 fall-risk domains. Item keys and scales below are taken from
+# the same column/scale definitions used in DOMAINS/SCALES above —
+# they must match exactly, since they key into the same stored
+# assessment row.
+# =============================================================
+MFRA_DOMAINS = [
+
+    {
+        "id": "mob",
+        "name": "Mobility",
+        "short": "Mobility",
+        "question": "How much help does {name} need with mobility and transfers?",
+        "items": [
+            ("fimfam_transfer_bed_adm", "Transfer: bed/chair", "fim"),
+            ("fimfam_transfer_toilet_adm", "Transfer: toilet", "fim"),
+            ("fimfam_transfer_bath_adm", "Transfer: bath/shower", "fim"),
+            ("npds_mobility_adm", "Mobility dependency", "npds_4points"),
+        ],
+    },
+
+    {
+        "id": "cog",
+        "name": "Cognitive / Communicative",
+        "short": "Cognition",
+        "question": "How is {name} communicating and processing information?",
+        "items": [
+            ("nis_cognitive_adm", "Cognitive impairment", "nis"),
+            ("npds_safety_adm", "Safety supervision", "npds_3points"),
+        ],
+    },
+
+    {
+        "id": "phys",
+        "name": "Physical Impairment",
+        "short": "Physical",
+        "question": "What are the physical and neurological findings for {name}?",
+        "items": [
+            ("nis_motor_lower_left_adm", "Motor: left leg", "nis"),
+            ("nis_motor_lower_right_adm", "Motor: right leg", "nis"),
+            ("nis_motor_trunk_adm", "Trunk control", "nis_special"),
+            ("nis_tone_adm", "Tone/spasticity", "nis"),
+            ("nis_sensation_adm", "Sensation", "nis"),
+            ("nis_perceptual_adm", "Perceptual impairment", "nis"),
+            ("nis_fatigue_adm", "Fatigue", "nis"),
+        ],
+    },
+
+]
+
+# Flatten items for easy iteration
+MFRA_ITEMS = [
+    {"key": k, "label": lbl, "scale": sc, "domain": d["id"]}
+    for d in MFRA_DOMAINS
+    for (k, lbl, sc) in d["items"]
+]
+
 # Domain view with scale objects for templates
 DOMAIN_VIEW = [
     {
@@ -221,7 +296,10 @@ DOMAIN_VIEW = [
                 "label": lbl,
                 "scale": sc,
                 "tag": SCALES[sc]["tag"],
-                "values": SCALES[sc].get("values", list(range(SCALES[sc]["min"], SCALES[sc]["max"] + 1))),
+                "values": SCALES[sc].get(
+                    "values",
+                    list(range(SCALES[sc]["min"], SCALES[sc]["max"] + 1)),
+                ),
                 "anchors": SCALES[sc]["anchors"],
             }
             for (k, lbl, sc) in d["items"]
@@ -231,37 +309,41 @@ DOMAIN_VIEW = [
 ]
 
 
+# =============================================================
+# Feature typing / binning / scoring
+# =============================================================
+
 def apply_dev_feature_types(X, numeric_cols, categorical_cols):
     """Apply feature typing learned from development data."""
     X_clean = X.copy()
-    
+
     for col in numeric_cols:
         if col not in X_clean.columns:
             raise KeyError(f"Numeric feature missing: {col}")
         X_clean[col] = pd.to_numeric(X_clean[col], errors="coerce")
         X_clean[col] = X_clean[col].replace([np.inf, -np.inf], np.nan).astype("float64")
-    
+
     for col in categorical_cols:
         if col not in X_clean.columns:
             raise KeyError(f"Categorical feature missing: {col}")
         X_clean[col] = X_clean[col].map(
             lambda v: str(v).strip() if pd.notna(v) else np.nan
         ).astype("object")
-    
+
     return X_clean.replace({pd.NA: np.nan})
 
 
 def apply_feature_bins(X, specs, imputation_values):
     """Apply locked development-derived bins."""
     Xb = pd.DataFrame(index=X.index)
-    
+
     for feature, spec in specs.items():
         if feature not in X.columns:
             raise KeyError(f"Missing feature: {feature}")
-        
+
         s = pd.to_numeric(X[feature], errors="coerce").astype(float)
         s = s.fillna(float(imputation_values[feature]))
-        
+
         Xb[feature] = pd.cut(
             s,
             bins=spec["edges"],
@@ -270,24 +352,24 @@ def apply_feature_bins(X, specs, imputation_values):
             right=True,
             ordered=True,
         ).astype("object")
-    
+
     return Xb
 
 
 def score_binned_dataframe(X_binned):
     """Score binned data using the point mapping."""
     component_points = pd.DataFrame(index=X_binned.index)
-    
+
     for feature in FINAL_WPI_FEATURES:
         mapping = BIN_POINT_MAPPING[feature]
         values = X_binned[feature].astype(str).str.replace('.0', '').fillna("Missing")
-        
+
         unknown = set(values.unique()) - set(mapping.keys())
         for val in unknown:
             mapping[val] = 0
-        
+
         component_points[feature] = values.map(mapping).astype(float)
-    
+
     total_wpi = component_points.sum(axis=1)
 
     return component_points, total_wpi
@@ -298,24 +380,64 @@ def score_new_patient(patient_df: DataFrame):
     missing = [f for f in FINAL_WPI_FEATURES if f not in patient_df.columns]
     if missing:
         raise KeyError(f"Missing WPI admission input fields: {missing}")
-    
+
     Xp = patient_df.reindex(columns=FINAL_WPI_FEATURES).copy()
     Xp_clean = apply_dev_feature_types(Xp, numeric_features, categorical_features)
     patient_bins = apply_feature_bins(Xp_clean, FEATURE_BIN_SPECS, BIN_IMPUTATION_VALUES)
-    
+
     component_points, total_wpi = score_binned_dataframe(patient_bins)
-    
+
     probability = CALIBRATOR_MODEL.predict_proba(
         np.asarray(total_wpi, dtype=float).reshape(-1, 1)
     )[:, 1]
-    
+
     output = pd.DataFrame({
         "WPI": total_wpi.values,
         "EstimatedWalkingProbability": probability,
         "EstimatedWalkingProbability_percent": probability * 100,
     }, index=Xp.index)
-    
+
     return output, component_points, patient_bins
+
+
+def find_new_patient_cluster(patient_df: DataFrame):
+    """Predict KMeans phenotype cluster for a new patient (1-indexed)."""
+
+    missing = [
+        f for f in PHENOTYPE_FEATURES
+        if f not in patient_df.columns
+    ]
+
+    if missing:
+        raise KeyError(
+            f"Missing phenotype input fields: {missing}"
+        )
+
+    phenotype_input = patient_df.reindex(
+        columns=PHENOTYPE_FEATURES
+    ).copy()
+
+    for col in PHENOTYPE_FEATURES:
+        if col.startswith("fimfam_"):
+            phenotype_input[col] = (
+                7 - pd.to_numeric(phenotype_input[col], errors="coerce")
+            )
+
+    phenotype_input_clean = apply_dev_feature_types(
+        phenotype_input,
+        NUM_PHENOTYPE,
+        CAT_PHENOTYPE,
+    )
+
+    phenotype_transformed = PHENOTYPE_PREPROCESSOR.transform(
+        phenotype_input_clean
+    )
+
+    cluster = int(
+        KMEANS_MODEL.predict(phenotype_transformed)[0]
+    ) + 1
+
+    return cluster
 
 
 def domain_score(values, domain_id):
@@ -334,6 +456,87 @@ def domain_score(values, domain_id):
     return got / mx if mx > 0 else 0.0
 
 
+def mfra_item_risk_score(value, scale):
+    """
+    Convert one raw item value into a 0-1 fall-risk score.
+
+    Step 1 — normalize the raw value onto a 0-1 scale using that
+    item's own min/max, and clip to guard against out-of-range input.
+
+    Step 2 — reverse FIM/FAM-direction items. FIM/FAM items score
+    *higher* when the patient is *more* independent (dir > 0), which
+    is the opposite of risk, so for those items the normalized score
+    is flipped (1 - score) to turn "more independent" into "less
+    risk". NIS/NPDS items already run the other way (dir < 0: higher
+    raw value = more impairment/dependency = more risk), so they are
+    left as-is — no reversal needed.
+    """
+    x = float(value)
+
+    xmin = scale["min"]
+    xmax = scale["max"]
+
+    if xmax == xmin:
+        return 0.0
+
+    # Step 1: normalize
+    score = (x - xmin) / (xmax - xmin)
+    score = max(0.0, min(1.0, score))
+
+    # Step 2: reverse FIM/FAM-direction items only
+    if scale["dir"] > 0:
+        score = 1.0 - score
+
+    return score
+
+
+def mfra_domain_score(values, domain_id):
+    """
+    Step 3 — compute the unweighted mean risk score for one MFRA
+    domain, from the already normalized-and-reversed item scores.
+    """
+    item_scores = []
+
+    for item in MFRA_ITEMS:
+        if item["domain"] != domain_id:
+            continue
+
+        scale = SCALES[item["scale"]]
+        value = values.get(item["key"])
+
+        if value is None:
+            continue
+
+        item_scores.append(
+            mfra_item_risk_score(value, scale)
+        )
+
+    return (
+        sum(item_scores) / len(item_scores)
+        if item_scores
+        else 0.0
+    )
+
+
+def mfra_overall_score(values):
+    """Step 4 — compute the unweighted mean across all MFRA domains."""
+    domain_scores = []
+
+    for domain in MFRA_DOMAINS:
+        domain_scores.append(
+            mfra_domain_score(
+                values,
+                domain["id"]
+            )
+        )
+
+    return (
+        sum(domain_scores) / len(domain_scores)
+        if domain_scores
+        else 0.0
+    )
+
+
 def predict(values):
     """Predict walking probability and barrier score for a single patient."""
     df = pd.DataFrame([values])
@@ -345,10 +548,13 @@ def predict(values):
     barrier_score = wpi / QUANTILE_BANDS["q95"] * 10
     barrier_score = np.clip(barrier_score, 0, 10)
 
+    cluster = find_new_patient_cluster(df)
+
     logger.info(
         f"Predicted WPI: {wpi:.1f}, "
         f"barrier score: {barrier_score:.1f}, "
-        f"walk probability: {walk_prob:.1f}%"
+        f"walk probability: {walk_prob:.1f}%, "
+        f"cluster: {cluster}"
     )
 
     # Calculate domain scores
@@ -357,13 +563,67 @@ def predict(values):
         for d in DOMAINS
     }
 
+    # # Calculate MFRA fall-risk score (0-100) and its domain breakdown
+    # mfra_domains = {
+    #     d["id"]: round(mfra_domain_score(values, d["id"]) * 100)
+    #     for d in MFRA_DOMAINS
+    # }
+
+    mfra_score = round(mfra_overall_score(values), 2)
+
+    logger.info(f"MFRA fall-risk score: {mfra_score:.2f}")
+
     return {
         "wpi": wpi,
+        "cluster": cluster,
         "walk_prob": round(walk_prob, 1),
         "barrier_score": round(barrier_score, 1),
         "domains": domains,
+        "mfra_score": mfra_score,
+        # "mfra_domains": mfra_domains,
     }
 
+
+# =============================================================
+# Similar-patient lookup
+# =============================================================
+
+def get_similar_wpi_patients(wpi, cluster, wpi_tolerance=5.0):
+    """
+    Filter historical patients to those in the same cluster with WPI within
+    ±wpi_tolerance, then return the mean of every feature across that cohort.
+    """
+    df = PHENOTYPE_REFERENCE_DATASET
+
+    if df is None or len(df) == 0 or "WPI" not in df.columns:
+        return {"n_matched": 0, "averages": {}}
+
+    # Filter by WPI window and cluster (try exact + ±1 for index mismatch)
+    wpi_mask = df["WPI"].between(
+        wpi - wpi_tolerance,
+        wpi + wpi_tolerance
+    )
+
+    cluster_mask = df["cluster"] == cluster
+
+    matched = df.loc[wpi_mask & cluster_mask]
+
+    if matched.empty:
+        return {"n_matched": 0, "averages": {}}
+
+    # Average all numeric columns
+    numeric = matched.select_dtypes(include=[np.number])
+    averages = numeric.mean().round(2).to_dict()
+
+    return {
+        "n_matched": int(len(matched)),
+        "averages": averages,
+    }
+
+
+# =============================================================
+# Explainability
+# =============================================================
 
 def explain_patient(values, max_features=5):
     """Explain which clinical items support or limit the predicted walking probability."""
@@ -372,9 +632,7 @@ def explain_patient(values, max_features=5):
 
     def model_fn(X):
         X = pd.DataFrame(X, columns=ITEM_KEYS)
-
         output, _, _ = score_new_patient(X)
-
         return output["EstimatedWalkingProbability_percent"].to_numpy()
 
     # Use the development-derived imputation values as the SHAP background.
@@ -404,7 +662,6 @@ def explain_patient(values, max_features=5):
     factors = []
 
     for i, feature in enumerate(ITEM_KEYS):
-
         label = next(
             item["label"]
             for item in ITEMS
@@ -434,6 +691,10 @@ def explain_patient(values, max_features=5):
         "limiting": limiting,
     }
 
+
+# =============================================================
+# Barrier band helpers
+# =============================================================
 
 def wpi_barrier_band(wpi):
     """Classify WPI score into barrier burden bands using quantiles."""
@@ -468,6 +729,11 @@ def wpi_barrier_var(wpi):
         return "warn"
     else:
         return "bad"
+
+
+# =============================================================
+# Display grouping
+# =============================================================
 
 def measures_grouping(a):
     """Group the 28 UK ROC admission items into 3 scales for display."""
@@ -512,6 +778,11 @@ def measures_grouping(a):
         })
 
     return grouped
+
+
+# =============================================================
+# Interpretation
+# =============================================================
 
 def interpret(pred, previous=None, patient_name="Patient"):
     """Generate plain-English clinical interpretation."""

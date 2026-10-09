@@ -216,9 +216,13 @@ CREATE TABLE assessments (
     -- Computed outputs
     -- -----------------------------------------------------------------------
 
-    wpi INTEGER NOT NULL,
+    wpi REAL NOT NULL,
 
     walk_prob REAL NOT NULL,
+
+    cluster REAL NOT NULL,
+
+    mfra_score REAL NOT NULL,
 
     barrier_score REAL NOT NULL,
 

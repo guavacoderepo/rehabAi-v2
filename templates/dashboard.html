@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+
+{% block title %}Dashboard · RehabAI{% endblock %}
+
+{% block content %}
+{% set k = stats.kpis %}
+{% set avg = stats.averages %}
+{% set scope_args = {'clinic': clinic.id} if (clinic and g.user.is_admin) else {} %}
+
+<!-- Header -->
+<div class="page-head d-flex flex-wrap align-items-end gap-3">
+  <div class="me-auto">
+    <span class="lbl-sm">{{ today_long }}</span>
+    <h1 class="mt-1">{{ greeting }}, {{ g.user.username.split()[0] }}</h1>
+    <p>Rehabilitation outcomes for <strong>{{ scope_label }}</strong>, based on each patient's most recent assessment.</p>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-ghost" href="{{ url_for('patients.create') }}">{{ m.icon('person-plus') }} Add patient</a>
+    <a class="btn btn-primary" href="{{ url_for('patients.index', **scope_args) }}">{{ m.icon('people') }} View patients</a>
+  </div>
+</div>
+
+<!-- Filters -->
+<form class="d-flex flex-wrap align-items-center gap-2 mb-4" method="get" action="{{ url_for('main.dashboard') }}">
+  {{ m.scope_control(clinic_options, clinic, scope_label) }}
+
+  <select class="form-select form-select-sm w-auto" name="status" data-autosubmit aria-label="Admission status">
+    <option value="">All admissions</option>
+    <option value="active" {{ 'selected' if status == 'active' }}>Active only</option>
+    <option value="discharged" {{ 'selected' if status == 'discharged' }}>Discharged only</option>
+  </select>
+
+  {% if status or (clinic and g.user.is_admin) %}
+    <a class="btn btn-sm btn-link text-ink-2" href="{{ url_for('main.dashboard') }}">Reset</a>
+  {% endif %}
+  <noscript><button class="btn btn-sm btn-ghost" type="submit">Apply</button></noscript>
+</form>
+
+{% if not k.patients %}
+
+  {{ m.empty_state(
+      "No patients yet",
+      "Add a patient and complete their first assessment to see hospital statistics here.",
+      url_for('patients.create'),
+      "Add patient",
+      "bar-chart"
+  ) }}
+
+{% else %}
+
+<!-- KPI tiles -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <a class="tile" href="{{ url_for('patients.index', **scope_args) }}">
+      <div class="d-flex justify-content-between"><div class="lbl">Patients</div><span class="ico">{{ m.icon('people') }}</span></div>
+      <div class="v num">{{ k.patients }}</div>
+      <div class="foot">{{ k.active }} active · {{ k.discharged }} discharged</div>
+    </a>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <div class="tile">
+      <div class="d-flex justify-content-between"><div class="lbl">Assessments</div><span class="ico">{{ m.icon('clipboard2-pulse') }}</span></div>
+      <div class="v num">{{ k.assessments }}</div>
+      <div class="foot">{{ k.recent_assessments }} in the last {{ stats.recent_days }} days</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <a class="tile" href="{{ url_for('patients.index', trend='improving', **scope_args) }}">
+      <div class="d-flex justify-content-between"><div class="lbl">Improving</div><span class="ico">{{ m.icon('graph-down-arrow') }}</span></div>
+      <div class="v num text-good">{{ k.improving }}</div>
+      <div class="foot">WPI lower than baseline · {{ k.declining }} worsening</div>
+    </a>
+  </div>
+
+  <div class="col-6 col-lg-3">
+    <a class="tile" href="{{ url_for('patients.index', band='higher', **scope_args) }}">
+      <div class="d-flex justify-content-between"><div class="lbl">Needs review</div><span class="ico">{{ m.icon('exclamation-triangle') }}</span></div>
+      <div class="v num {{ 'text-bad' if k.needs_review }}">{{ k.needs_review }}</div>
+      <div class="foot">Higher barrier burden · {{ k.overdue }} overdue</div>
+    </a>
+  </div>
+</div>
+
+<!-- Gauges -->
+<div class="row g-3 mb-1">
+  <div class="col-md-4">
+    <div class="panel h-100">
+      <div class="panel-head mb-1"><h2>Average WPI</h2><span class="sub ms-auto">lower is better</span></div>
+      {{ m.chart('gauge', stats.gauges.wpi, 'gauge-box', 'Average WPI gauge') }}
+      <div class="text-center mt-2">{{ m.band_pill(avg.wpi) if avg.wpi is not none else '' }}</div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="panel h-100">
+      <div class="panel-head mb-1"><h2>Average walking probability</h2></div>
+      {{ m.chart('gauge', stats.gauges.walk, 'gauge-box', 'Average walking probability gauge') }}
+      <p class="text-center small text-ink-3 mt-2 mb-0">Chance of walking by discharge</p>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="panel h-100">
+      <div class="panel-head mb-1"><h2>Average barrier score</h2></div>
+      {{ m.chart('gauge', stats.gauges.barrier, 'gauge-box', 'Average barrier score gauge') }}
+      <p class="text-center small text-ink-3 mt-2 mb-0">{{ k.assessed }} of {{ k.patients }} patients assessed</p>
+    </div>
+  </div>
+</div>
+
+<!-- Bands + domains -->
+<div class="row g-3 mt-2">
+  <div class="col-lg-5">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Barrier burden</h2><span class="sub ms-auto">latest assessment</span></div>
+
+      <div class="row align-items-center g-3">
+        <div class="col-sm-6">
+          {{ m.chart('doughnut', {
+              'labels': stats.bands | map(attribute='short') | list,
+              'values': stats.bands | map(attribute='count') | list,
+              'colors': stats.bands | map(attribute='var') | list,
+              'centerLabel': 'assessed'
+          }, 'chart-box sm', 'Barrier burden distribution') }}
+        </div>
+        <div class="col-sm-6">
+          <ul class="legend-list">
+            {% for b in stats.bands %}
+              <li>
+                <a href="{{ url_for('patients.index', band=b.key, **scope_args) }}">
+                  <span class="sw sw-{{ b.var }}"></span>{{ b.short }}<b>{{ b.count }}</b>
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Domain attainment</h2><span class="sub ms-auto">average, higher is better</span></div>
+      {{ m.chart('bar', {
+          'labels': stats.domains | map(attribute='name') | list,
+          'datasets': [{'label': 'Attainment', 'data': stats.domains | map(attribute='pct') | list, 'color': 'pink'}],
+          'horizontal': true,
+          'max': 100,
+          'suffix': '%'
+      }, 'chart-box sm', 'Average functional attainment by domain') }}
+    </div>
+  </div>
+</div>
+
+<!-- Trend + walking -->
+<div class="row g-3 mt-2">
+  <div class="col-lg-8">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Monthly outcomes</h2><span class="sub ms-auto">all assessments, averaged by month</span></div>
+      {{ m.chart('trend', stats.trend, 'chart-box', 'Monthly average WPI and walking probability') }}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Walking status</h2></div>
+      {{ m.chart('doughnut', dict(stats.walking, legend=true), 'chart-box', 'Walking status of patients') }}
+    </div>
+  </div>
+</div>
+
+<!-- Diagnoses + phenotype -->
+<div class="row g-3 mt-2">
+  <div class="col-lg-7">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Diagnosis mix</h2></div>
+      {{ m.chart('bar', {
+          'labels': stats.diagnoses.labels,
+          'datasets': [{'label': 'Patients', 'data': stats.diagnoses['values'], 'color': 'ink-3'}],
+          'integer': true
+      }, 'chart-box sm', 'Patients by diagnosis') }}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Phenotype clusters</h2><span class="sub ms-auto">latest assessment</span></div>
+      {{ m.chart('doughnut', {
+          'labels': stats.clusters.labels,
+          'values': stats.clusters['values'],
+          'colors': ['pink', 'mid', 'good', 'warn', 'ink-3'][:stats.clusters.labels | length],
+          'legend': true,
+          'centerLabel': 'assessed'
+      }, 'chart-box sm', 'Patients by phenotype cluster') }}
+    </div>
+  </div>
+</div>
+
+<!-- Lists -->
+<div class="row g-3 mt-2">
+  <div class="col-lg-4">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Needs review</h2><span class="pill p-bad ms-auto">{{ k.needs_review }}</span></div>
+      {% if stats.needs_review %}
+        <ul class="mini-list">
+          {% for p in stats.needs_review %}
+            <li>
+              <a href="{{ url_for('patients.detail', patient_id=p.patient_id) }}">
+                <span class="av av-sm {{ p.patient_id | tint }}">{{ p.name | initials }}</span>
+                <span class="flex-grow-1"><span class="nm d-block">{{ p.name }}</span><span class="sub">{{ p.diag_std_subcat }}</span></span>
+                <span class="text-end"><b class="num text-bad">{{ '%.1f' % p.latest_wpi }}</b><span class="sub d-block">WPI</span></span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="small text-ink-3 mb-0">No patients in the higher barrier burden band.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Due for reassessment</h2><span class="pill p-warn ms-auto">{{ k.overdue }}</span></div>
+      {% if stats.overdue %}
+        <ul class="mini-list">
+          {% for p in stats.overdue %}
+            <li>
+              <a href="{{ url_for('assessments.new', patient_id=p.patient_id, prefill=1 if p.latest_id else none) }}">
+                <span class="av av-sm {{ p.patient_id | tint }}">{{ p.name | initials }}</span>
+                <span class="flex-grow-1">
+                  <span class="nm d-block">{{ p.name }}</span>
+                  <span class="sub">{{ 'Last scored ' ~ (p.latest_assessed_on | ago) if p.latest_assessed_on else 'Never assessed' }}</span>
+                </span>
+                {{ m.icon('arrow-right-short', 'text-ink-3') }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="small text-ink-3 mb-0">Every active patient was assessed in the last 14 days.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Recent assessments</h2></div>
+      {% if stats.recent %}
+        <ul class="mini-list">
+          {% for r in stats.recent %}
+            <li>
+              <a href="{{ url_for('assessments.detail', patient_id=r.patient_code, assessment_id=r.id) }}">
+                <span class="flex-grow-1"><span class="nm d-block">{{ r.name }}</span><span class="sub">{{ r.assessed_on | longdate }}</span></span>
+                <span class="text-end"><b class="num">{{ '%.1f' % r.walk_prob }}%</b><span class="sub d-block">walking</span></span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="small text-ink-3 mb-0">No assessments recorded yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="home-cta mt-4">
+  <div>
+    <h2>Work with individual patients</h2>
+    <p>Search, filter and open patient records to score a new assessment.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('patients.index', **scope_args) }}">Go to patients {{ m.icon('arrow-right') }}</a>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block vendor_scripts %}{{ m.chart_scripts() }}{% endblock %}
